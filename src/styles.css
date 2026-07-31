@@ -20,6 +20,8 @@
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
