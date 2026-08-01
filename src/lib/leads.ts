@@ -2,61 +2,70 @@ export type Lead = {
   name: string;
   phone: string;
   address: string;
-  rating: number;
+  rating: number | null;
   reviews: number;
   website: string;
 };
 
-const SUFFIXES = [
-  "Central",
-  "Express",
-  "Prime",
-  "do Bairro",
-  "& Cia",
-  "Premium",
-  "Studio",
-  "Casa",
-  "Ponto",
-  "Vip",
-  "Plus",
-  "Boutique",
-];
+const API_URL = "http://localhost:8000/api/v1/scrape";
 
-const STREETS = [
-  "Av. Paulista",
-  "Rua das Flores",
-  "Av. Brasil",
-  "Rua XV de Novembro",
-  "Av. Getúlio Vargas",
-  "Rua Sete de Setembro",
-  "Av. Beira Mar",
-  "Rua do Comércio",
-];
-
-function slug(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
+function pick(row: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number") return String(value);
+  }
+  return "";
 }
 
-/** Mocked prospecting result set — replace with a real provider later. */
-export function generateLeads(category: string, city: string, count = 12): Lead[] {
-  const base = category.trim() || "Negócio";
-  const place = city.trim() || "Brasil";
+function toNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
-  return Array.from({ length: count }, (_, index) => {
-    const suffix = SUFFIXES[index % SUFFIXES.length];
-    const name = `${base} ${suffix}`;
-    const hasSite = index % 4 !== 0;
-    return {
-      name,
-      phone: `(${11 + (index % 78)}) 9${(10000000 + index * 132457).toString().slice(0, 4)}-${(1000 + index * 37).toString().slice(0, 4)}`,
-      address: `${STREETS[index % STREETS.length]}, ${100 + index * 17} — ${place}`,
-      rating: Number((3.4 + ((index * 7) % 16) / 10).toFixed(1)),
-      reviews: 18 + ((index * 53) % 480),
-      website: hasSite ? `www.${slug(name)}.com.br` : "",
-    };
+function normalize(row: Record<string, unknown>): Lead {
+  return {
+    name: pick(row, ["name", "nome", "title", "business_name"]) || "Sem nome",
+    phone: pick(row, ["phone", "telefone", "phone_number", "whatsapp"]),
+    address: pick(row, ["address", "endereco", "endereço", "full_address", "location"]),
+    rating: toNumber(row["rating"] ?? row["nota"] ?? row["score"] ?? row["stars"]),
+    reviews: toNumber(row["reviews"] ?? row["avaliacoes"] ?? row["reviews_count"] ?? row["user_ratings_total"]) ?? 0,
+    website: pick(row, ["website", "site", "url", "web"]),
+  };
+}
+
+/** Chama o backend Python de scraping de negócios locais. */
+export async function fetchLeads(category: string, city: string): Promise<Lead[]> {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ term: category.trim(), city: city.trim() }),
   });
+
+  if (!response.ok) {
+    throw new Error(`A API respondeu com status ${response.status}`);
+  }
+
+  const payload: unknown = await response.json();
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { results?: unknown[] })?.results)
+      ? (payload as { results: unknown[] }).results
+      : Array.isArray((payload as { data?: unknown[] })?.data)
+        ? (payload as { data: unknown[] }).data
+        : Array.isArray((payload as { leads?: unknown[] })?.leads)
+          ? (payload as { leads: unknown[] }).leads
+          : [];
+
+  return rows.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null).map(normalize);
+}
+
+/** Monta o link do WhatsApp a partir de um telefone em qualquer formato. */
+export function whatsappLink(phone: string): string | null {
+  let digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("0")) digits = digits.replace(/^0+/, "");
+  if (!digits.startsWith("55")) digits = `55${digits}`;
+  if (digits.length < 12) return null;
+  return `https://wa.me/${digits}`;
 }

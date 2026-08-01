@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  AlertCircle,
   Building2,
   Download,
   Globe,
   Loader2,
   MapPin,
+  MessageCircle,
+  Percent,
   Phone,
   Radar,
   Search,
@@ -16,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -25,7 +28,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { generateLeads, type Lead } from "@/lib/leads";
+import { cn } from "@/lib/utils";
+import { fetchLeads, whatsappLink, type Lead } from "@/lib/leads";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -34,13 +38,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Busque negócios locais por categoria e cidade, veja telefone, endereço e nota no Google, e exporte tudo para Excel.",
+          "Busque negócios locais por categoria e cidade, veja telefone, endereço, nota no Google e fale por WhatsApp em um clique.",
       },
       { property: "og:title", content: "LeadRadar — Prospecção de Leads Locais" },
       {
         property: "og:description",
         content:
-          "Encontre leads de negócios locais por categoria e região e exporte a lista completa para Excel.",
+          "Encontre leads de negócios locais por categoria e região, filtre oportunidades e exporte para Excel.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,59 +53,98 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+type Filter = "all" | "phone" | "opportunity";
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "phone", label: "Com Telefone" },
+  { id: "opportunity", label: "Oportunidades (Nota < 4.0)" },
+];
+
+function isOpportunity(lead: Lead) {
+  return lead.rating === null || lead.rating < 4;
+}
+
 function Index() {
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState({ category: "", city: "" });
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const stats = useMemo(() => {
     if (!leads?.length) return null;
-    const withSite = leads.filter((lead) => lead.website).length;
-    const avg = leads.reduce((sum, lead) => sum + lead.rating, 0) / leads.length;
-    return { total: leads.length, withSite, avg: avg.toFixed(1) };
+    const withPhone = leads.filter((lead) => lead.phone).length;
+    const rated = leads.filter((lead) => lead.rating !== null);
+    const avg = rated.length
+      ? (rated.reduce((sum, lead) => sum + (lead.rating ?? 0), 0) / rated.length).toFixed(1)
+      : "—";
+    return {
+      total: leads.length,
+      phonePct: Math.round((withPhone / leads.length) * 100),
+      withPhone,
+      avg,
+    };
   }, [leads]);
 
-  function handleSearch(event: React.FormEvent) {
+  const visibleLeads = useMemo(() => {
+    if (!leads) return null;
+    if (filter === "phone") return leads.filter((lead) => lead.phone);
+    if (filter === "opportunity") return leads.filter(isOpportunity);
+    return leads;
+  }, [leads, filter]);
+
+  async function handleSearch(event: React.FormEvent) {
     event.preventDefault();
     if (loading) return;
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
     setLoading(true);
-    setProgress(8);
+    setError(null);
     setLeads(null);
-
-    [22, 41, 63, 84, 96].forEach((value, index) => {
-      timers.current.push(setTimeout(() => setProgress(value), 300 * (index + 1)));
-    });
-
-    timers.current.push(
-      setTimeout(() => {
-        setProgress(100);
-        setLeads(generateLeads(category, city));
-        setQuery({ category: category.trim(), city: city.trim() });
-        setLoading(false);
-      }, 2000),
-    );
+    setFilter("all");
+    try {
+      const result = await fetchLeads(category, city);
+      setLeads(result);
+      setQuery({ category: category.trim(), city: city.trim() });
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? `Não foi possível buscar os leads: ${cause.message}. Verifique se a API está rodando em http://localhost:8000.`
+          : "Não foi possível buscar os leads.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleExport() {
-    if (!leads?.length) return;
+    if (!visibleLeads?.length) return;
     const XLSX = await import("xlsx");
     const sheet = XLSX.utils.json_to_sheet(
-      leads.map((lead) => ({
+      visibleLeads.map((lead) => ({
         Nome: lead.name,
-        Telefone: lead.phone,
-        Endereço: lead.address,
-        "Nota no Google": lead.rating,
+        Telefone: lead.phone || "—",
+        Endereço: lead.address || "—",
+        "Nota no Google": lead.rating ?? "N/A",
         Avaliações: lead.reviews,
+        Oportunidade: isOpportunity(lead)
+          ? "Melhorar Reputação"
+          : (lead.rating ?? 0) >= 4.5
+            ? "Alta Avaliação"
+            : "Regular",
         Site: lead.website || "—",
       })),
     );
-    sheet["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 42 }, { wch: 14 }, { wch: 12 }, { wch: 30 }];
+    sheet["!cols"] = [
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 42 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 30 },
+    ];
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "Leads");
     const label = [query.category, query.city].filter(Boolean).join("-").replace(/\s+/g, "_");
@@ -131,17 +174,6 @@ function Index() {
               </p>
             </div>
           </div>
-          {stats && (
-            <div className="flex gap-6 text-sm">
-              <StatItem icon={<Users className="size-4" />} label="Leads" value={stats.total} />
-              <StatItem icon={<Star className="size-4" />} label="Nota média" value={stats.avg} />
-              <StatItem
-                icon={<Globe className="size-4" />}
-                label="Com site"
-                value={stats.withSite}
-              />
-            </div>
-          )}
         </header>
 
         <section
@@ -182,24 +214,44 @@ function Index() {
             </div>
           </form>
 
-          {loading && (
-            <div className="mt-6 space-y-2" role="status" aria-live="polite">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Varrendo negócios em {city.trim() || "sua região"}...</span>
-                <span className="tabular-nums">{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
+          {error && (
+            <p className="mt-5 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              {error}
+            </p>
           )}
         </section>
+
+        {stats && (
+          <section className="mt-6 grid gap-4 sm:grid-cols-3">
+            <SummaryCard
+              icon={<Users className="size-5" />}
+              label="Total de Leads"
+              value={stats.total}
+              hint="resultados encontrados"
+            />
+            <SummaryCard
+              icon={<Percent className="size-5" />}
+              label="Com Telefone"
+              value={`${stats.phonePct}%`}
+              hint={`${stats.withPhone} de ${stats.total} empresas`}
+            />
+            <SummaryCard
+              icon={<Star className="size-5" />}
+              label="Nota Média"
+              value={stats.avg}
+              hint="média das avaliações"
+            />
+          </section>
+        )}
 
         <section className="mt-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Resultados</h2>
               <p className="text-sm text-muted-foreground">
-                {leads?.length
-                  ? `${leads.length} leads para "${query.category || "todos"}" em ${query.city || "todas as regiões"}`
+                {visibleLeads?.length
+                  ? `${visibleLeads.length} leads para "${query.category || "todos"}" em ${query.city || "todas as regiões"}`
                   : "Faça uma busca para listar os leads encontrados."}
               </p>
             </div>
@@ -207,7 +259,7 @@ function Index() {
               type="button"
               variant="secondary"
               onClick={handleExport}
-              disabled={!leads?.length}
+              disabled={!visibleLeads?.length}
               className="gap-2"
             >
               <Download className="size-4" />
@@ -215,20 +267,40 @@ function Index() {
             </Button>
           </div>
 
+          <div className="mt-4 flex flex-wrap gap-2">
+            {FILTERS.map((item) => (
+              <Button
+                key={item.id}
+                type="button"
+                size="sm"
+                variant={filter === item.id ? "default" : "outline"}
+                onClick={() => setFilter(item.id)}
+                disabled={!leads?.length}
+                className="rounded-full"
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+
           <div
             className="mt-4 overflow-hidden rounded-2xl border border-border"
             style={{ background: "var(--gradient-surface)", boxShadow: "var(--shadow-card)" }}
           >
             {loading ? (
-              <div className="flex flex-col items-center gap-3 px-6 py-16 text-muted-foreground">
-                <Loader2 className="size-7 animate-spin text-primary" />
-                <p className="text-sm">Coletando telefones, endereços e avaliações...</p>
-              </div>
-            ) : !leads ? (
+              <TableSkeleton />
+            ) : !visibleLeads ? (
               <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
                 <Radar className="size-8 text-primary" />
                 <p className="text-sm text-muted-foreground">
                   Informe a categoria e a cidade para começar a prospectar.
+                </p>
+              </div>
+            ) : !visibleLeads.length ? (
+              <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+                <Search className="size-8 text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Nenhum lead corresponde a este filtro.
                 </p>
               </div>
             ) : (
@@ -239,48 +311,86 @@ function Index() {
                     <TableHead className="text-muted-foreground">Telefone</TableHead>
                     <TableHead className="text-muted-foreground">Endereço</TableHead>
                     <TableHead className="text-muted-foreground">Nota no Google</TableHead>
+                    <TableHead className="text-muted-foreground">Oportunidade</TableHead>
                     <TableHead className="text-muted-foreground">Site</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leads.map((lead) => (
-                    <TableRow key={lead.name} className="border-border">
-                      <TableCell className="font-medium">{lead.name}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-2 text-muted-foreground">
-                          <Phone className="size-3.5 text-primary" />
-                          {lead.phone}
-                        </span>
-                      </TableCell>
-                      <TableCell className="max-w-[22rem] text-muted-foreground">
-                        {lead.address}
-                      </TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-semibold">
-                          <Star className="size-3.5 fill-warning text-warning" />
-                          {lead.rating.toFixed(1)}
-                          <span className="font-normal text-muted-foreground">
-                            ({lead.reviews})
+                  {visibleLeads.map((lead, index) => {
+                    const link = whatsappLink(lead.phone);
+                    return (
+                      <TableRow key={`${lead.name}-${index}`} className="border-border">
+                        <TableCell className="font-medium">{lead.name}</TableCell>
+                        <TableCell>
+                          {lead.phone ? (
+                            <span className="inline-flex items-center gap-2 text-muted-foreground">
+                              <Phone className="size-3.5 text-primary" />
+                              {lead.phone}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">sem telefone</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[20rem] text-muted-foreground">
+                          {lead.address || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-semibold">
+                            <Star className="size-3.5 fill-warning text-warning" />
+                            {lead.rating !== null ? lead.rating.toFixed(1) : "N/A"}
+                            {lead.reviews > 0 && (
+                              <span className="font-normal text-muted-foreground">
+                                ({lead.reviews})
+                              </span>
+                            )}
                           </span>
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {lead.website ? (
-                          <a
-                            href={`https://${lead.website}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                        </TableCell>
+                        <TableCell>
+                          <OpportunityBadge rating={lead.rating} />
+                        </TableCell>
+                        <TableCell>
+                          {lead.website ? (
+                            <a
+                              href={
+                                lead.website.startsWith("http")
+                                  ? lead.website
+                                  : `https://${lead.website}`
+                              }
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                            >
+                              <Globe className="size-3.5" />
+                              {lead.website.replace(/^https?:\/\//, "")}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">sem site</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            asChild={Boolean(link)}
+                            size="sm"
+                            disabled={!link}
+                            className="gap-1.5 bg-success font-semibold text-accent-foreground hover:bg-success/90"
                           >
-                            <Globe className="size-3.5" />
-                            {lead.website}
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">sem site</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {link ? (
+                              <a href={link} target="_blank" rel="noreferrer">
+                                <MessageCircle className="size-3.5" />
+                                WhatsApp
+                              </a>
+                            ) : (
+                              <span>
+                                <MessageCircle className="size-3.5" />
+                                WhatsApp
+                              </span>
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -291,22 +401,68 @@ function Index() {
   );
 }
 
-function StatItem({
+function OpportunityBadge({ rating }: { rating: number | null }) {
+  const opportunity = rating === null || rating < 4;
+  const high = rating !== null && rating >= 4.5;
+  const label = opportunity ? "Melhorar Reputação" : high ? "Alta Avaliação" : "Regular";
+  return (
+    <span
+      className={cn(
+        "inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold",
+        opportunity && "border-warning/40 bg-warning/15 text-warning",
+        high && "border-success/40 bg-success/15 text-success",
+        !opportunity && !high && "border-border bg-muted text-muted-foreground",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function SummaryCard({
   icon,
   label,
   value,
+  hint,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string | number;
+  hint: string;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-primary">{icon}</span>
+    <div
+      className="flex items-center gap-4 rounded-2xl border border-border p-5"
+      style={{ background: "var(--gradient-surface)", boxShadow: "var(--shadow-card)" }}
+    >
+      <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+        {icon}
+      </span>
       <div className="leading-tight">
-        <p className="font-semibold tabular-nums">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-2xl font-semibold tabular-nums">{value}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-3 p-6" role="status" aria-live="polite">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin text-primary" />
+        Coletando telefones, endereços e avaliações...
+      </div>
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="grid grid-cols-6 gap-3">
+          <Skeleton className="h-6 col-span-2" />
+          <Skeleton className="h-6" />
+          <Skeleton className="h-6" />
+          <Skeleton className="h-6" />
+          <Skeleton className="h-6" />
+        </div>
+      ))}
     </div>
   );
 }
