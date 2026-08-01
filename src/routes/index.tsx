@@ -362,7 +362,13 @@ function Index() {
                               className="inline-flex items-center gap-1.5 text-primary hover:underline"
                             >
                               <Globe className="size-3.5" />
-                              {lead.website.replace(/^https?:\/\//, "")}
+                              {/* Remove o protocolo (http/https) e o 'www.', e opcionalmente corta após a primeira barra */}
+                              {
+                                lead.website
+                                  .replace(/^https?:\/\//, "")
+                                  .replace(/^www\./, "")
+                                  .split("/")[0]
+                              }
                             </a>
                           ) : (
                             <span className="text-xs text-muted-foreground">sem site</span>

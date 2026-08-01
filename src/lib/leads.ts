@@ -30,7 +30,7 @@ function normalize(row: Record<string, unknown>): Lead {
     address: pick(row, ["address", "endereco", "endereço", "full_address", "location"]),
     rating: toNumber(row["rating"] ?? row["nota"] ?? row["score"] ?? row["stars"]),
     reviews: toNumber(row["reviews"] ?? row["avaliacoes"] ?? row["reviews_count"] ?? row["user_ratings_total"]) ?? 0,
-    website: pick(row, ["website", "site", "url", "web"]),
+    website: pick(row, ["website", "site", "url", "web"]) || "",
   };
 }
 
@@ -56,7 +56,6 @@ export async function fetchLeads(category: string, city: string): Promise<Lead[]
         : Array.isArray((payload as { leads?: unknown[] })?.leads)
           ? (payload as { leads: unknown[] }).leads
           : [];
-
   return rows.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null).map(normalize);
 }
 

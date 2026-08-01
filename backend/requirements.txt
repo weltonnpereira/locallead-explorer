@@ -1,0 +1,8 @@
+fastapi[standard]
+uvicorn 
+pydantic 
+playwright
+bs4
+# depois de instalar, rodamos:
+# "playwright install chromium"
+# "playwright install-deps"
