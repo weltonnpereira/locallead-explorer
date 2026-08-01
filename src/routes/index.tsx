@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Globe,
   Loader2,
@@ -55,6 +60,20 @@ export const Route = createFileRoute("/")({
 
 type Filter = "all" | "phone" | "opportunity";
 
+type SortKey = "name" | "phone" | "address" | "rating" | "opportunity" | "website";
+type SortDir = "asc" | "desc";
+
+const PAGE_SIZE = 10;
+
+const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
+  { key: "name", label: "Nome" },
+  { key: "phone", label: "Telefone" },
+  { key: "address", label: "Endereço" },
+  { key: "rating", label: "Nota no Google" },
+  { key: "opportunity", label: "Oportunidade" },
+  { key: "website", label: "Site" },
+];
+
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "phone", label: "Com Telefone" },
@@ -65,6 +84,18 @@ function isOpportunity(lead: Lead) {
   return lead.rating === null || lead.rating < 4;
 }
 
+function opportunityRank(lead: Lead) {
+  if (isOpportunity(lead)) return 0;
+  if ((lead.rating ?? 0) >= 4.5) return 2;
+  return 1;
+}
+
+function sortValue(lead: Lead, key: SortKey): string | number {
+  if (key === "rating") return lead.rating ?? -1;
+  if (key === "opportunity") return opportunityRank(lead);
+  return (lead[key] || "").toLowerCase();
+}
+
 function Index() {
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
@@ -73,6 +104,8 @@ function Index() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState({ category: "", city: "" });
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const [page, setPage] = useState(1);
 
   const stats = useMemo(() => {
     if (!leads?.length) return null;
@@ -91,10 +124,39 @@ function Index() {
 
   const visibleLeads = useMemo(() => {
     if (!leads) return null;
-    if (filter === "phone") return leads.filter((lead) => lead.phone);
-    if (filter === "opportunity") return leads.filter(isOpportunity);
-    return leads;
-  }, [leads, filter]);
+    let list = leads;
+    if (filter === "phone") list = leads.filter((lead) => lead.phone);
+    if (filter === "opportunity") list = leads.filter(isOpportunity);
+    if (sort) {
+      const factor = sort.dir === "asc" ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        const va = sortValue(a, sort.key);
+        const vb = sortValue(b, sort.key);
+        if (va < vb) return -1 * factor;
+        if (va > vb) return 1 * factor;
+        return 0;
+      });
+    }
+    return list;
+  }, [leads, filter, sort]);
+
+  const totalPages = Math.max(1, Math.ceil((visibleLeads?.length ?? 0) / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageLeads = useMemo(
+    () => visibleLeads?.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) ?? null,
+    [visibleLeads, currentPage],
+  );
+
+  function toggleSort(key: SortKey) {
+    setPage(1);
+    setSort((current) =>
+      current?.key !== key
+        ? { key, dir: "asc" }
+        : current.dir === "asc"
+          ? { key, dir: "desc" }
+          : null,
+    );
+  }
 
   async function handleSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -103,6 +165,8 @@ function Index() {
     setError(null);
     setLeads(null);
     setFilter("all");
+    setSort(null);
+    setPage(1);
     try {
       const result = await fetchLeads(category, city);
       setLeads(result);
@@ -274,7 +338,10 @@ function Index() {
                 type="button"
                 size="sm"
                 variant={filter === item.id ? "default" : "outline"}
-                onClick={() => setFilter(item.id)}
+                onClick={() => {
+                  setFilter(item.id);
+                  setPage(1);
+                }}
                 disabled={!leads?.length}
                 className="rounded-full"
               >
@@ -307,17 +374,31 @@ function Index() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-muted-foreground">Nome</TableHead>
-                    <TableHead className="text-muted-foreground">Telefone</TableHead>
-                    <TableHead className="text-muted-foreground">Endereço</TableHead>
-                    <TableHead className="text-muted-foreground">Nota no Google</TableHead>
-                    <TableHead className="text-muted-foreground">Oportunidade</TableHead>
-                    <TableHead className="text-muted-foreground">Site</TableHead>
+                    {COLUMNS.map((column) => {
+                      const active = sort?.key === column.key;
+                      const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
+                      return (
+                        <TableHead key={column.key} className="text-muted-foreground">
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(column.key)}
+                            aria-label={`Ordenar por ${column.label}`}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-md py-1 transition-colors hover:text-foreground",
+                              active && "text-primary",
+                            )}
+                          >
+                            {column.label}
+                            <Icon className="size-3.5" />
+                          </button>
+                        </TableHead>
+                      );
+                    })}
                     <TableHead className="text-right text-muted-foreground">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleLeads.map((lead, index) => {
+                  {(pageLeads ?? []).map((lead, index) => {
                     const link = whatsappLink(lead.phone);
                     return (
                       <TableRow key={`${lead.name}-${index}`} className="border-border">
@@ -401,6 +482,16 @@ function Index() {
               </Table>
             )}
           </div>
+
+          {visibleLeads && visibleLeads.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={visibleLeads.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          )}
         </section>
       </div>
     </main>
@@ -504,6 +595,107 @@ function Field({
           onChange={(event) => onChange(event.target.value)}
           className="h-11 pl-9"
         />
+      </div>
+    </div>
+  );
+}
+
+function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  const start = (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
+
+  const pages = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [
+        1,
+        "...",
+        totalPages - 4,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  }, [currentPage, totalPages]);
+
+  return (
+    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <p className="text-sm text-muted-foreground">
+        Mostrando <span className="font-medium text-foreground">{start}</span>–
+        <span className="font-medium text-foreground">{end}</span> de{" "}
+        <span className="font-medium text-foreground">{totalItems}</span> leads
+      </p>
+      <div className="flex items-center gap-1.5" aria-label="Paginação">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1 px-2.5"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        >
+          <ChevronLeft className="size-4" />
+          <span className="hidden sm:inline">Anterior</span>
+        </Button>
+
+        <div className="flex items-center gap-1">
+          {pages.map((page, index) =>
+            page === "..." ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="flex size-8 items-center justify-center text-sm text-muted-foreground"
+              >
+                …
+              </span>
+            ) : (
+              <Button
+                key={page}
+                type="button"
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                className="h-8 min-w-[2rem] px-2.5"
+                onClick={() => {
+                  if (typeof page === "number") onPageChange(page);
+                }}
+                aria-label={`Ir para página ${page}`}
+                aria-current={currentPage === page ? "page" : undefined}
+              >
+                {page}
+              </Button>
+            ),
+          )}
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1 px-2.5"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        >
+          <span className="hidden sm:inline">Próxima</span>
+          <ChevronRight className="size-4" />
+        </Button>
       </div>
     </div>
   );
