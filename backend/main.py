@@ -190,22 +190,20 @@ async def scrape_google_maps(search_terms: str, city: str):
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             
-            target_count = 30
+            target_count = 50
             last_height = 0
             
             try:
-                while True:
+                for _ in range(15):
                     await page.evaluate('''() => {
                         const feed = document.querySelector('div[role="feed"]');
                         if (feed) feed.scrollTop = feed.scrollHeight;
                     }''')
-                    await asyncio.sleep(1.5)
+                    await asyncio.sleep(0.8) # Reduzido de 1.5s para 0.8s
                     
                     current_elements = await page.query_selector_all('div[role="article"]')
-                    
                     if len(current_elements) >= target_count or len(current_elements) == last_height:
                         break
-                        
                     last_height = len(current_elements)
             except Exception:
                 pass
@@ -242,25 +240,19 @@ async def scrape_google_maps(search_terms: str, city: str):
                         if "·" in line and not re.search(r'\d{4,5}-\d{4}', line):
                             address = line.split("·")[-1].strip()
                             break
-
+                    
                     if title_el:
                         await title_el.scroll_into_view_if_needed()
                         await title_el.click(force=True)
                         
                         try:
-                            escaped_title = title.replace('"', '\\"')
-                            await page.wait_for_selector(f'h1:has-text("{escaped_title}")', state="visible", timeout=4000)
-                            await page.wait_for_timeout(500)
+                            await page.wait_for_selector('.Io6YTe', timeout=1500)
                         except Exception:
-                            await page.wait_for_timeout(3000)
+                            pass
                     
                     sub_elements = await page.query_selector_all('.Io6YTe')
-                    
-                    sub_texts = []
-                    for sub in sub_elements:
-                        t = await sub.inner_text()
-                        if t:
-                            sub_texts.append(t.strip())
+                    sub_texts = [await sub.inner_text() for sub in sub_elements if await sub.inner_text()]
+                    full_panel_text = details_text + " " + " ".join(sub_texts)
                             
                     full_panel_text = details_text + " " + " ".join(sub_texts)
                     
@@ -284,12 +276,6 @@ async def scrape_google_maps(search_terms: str, city: str):
                             if "wa.me" in text or "http" in text or ".com" in text or ".com.br" in text:
                                 website = text if text.startswith("http") else f"https://{text}"
                                 break
-                            
-                    for lead in leads:
-                        if not lead["website"]:
-                            insta = await find_instagram(lead["name"], city)
-                            if insta:
-                                lead["website"] = insta
                     
                     seen_names.add(title)
                     leads.append({
@@ -300,7 +286,7 @@ async def scrape_google_maps(search_terms: str, city: str):
                         "website": website
                     })
                     
-                    if len(leads) >= 30:
+                    if len(leads) >= target_count:
                         break
                 except Exception as e:
                     print(f"Erro ao processar {title}: {e}")
