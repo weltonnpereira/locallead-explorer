@@ -667,7 +667,9 @@ function Pagination({
                 variant={currentPage === page ? "default" : "outline"}
                 size="sm"
                 className="h-8 min-w-[2rem] px-2.5"
-                onClick={() => onPageChange(page)}
+                onClick={() => {
+                  if (typeof page === "number") onPageChange(page);
+                }}
                 aria-label={`Ir para página ${page}`}
                 aria-current={currentPage === page ? "page" : undefined}
               >
