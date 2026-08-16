@@ -174,7 +174,7 @@ function Index() {
     } catch (cause) {
       setError(
         cause instanceof Error
-          ? `Não foi possível buscar os leads: ${cause.message}. Verifique se a API está rodando em http://localhost:8000.`
+          ? `Não foi possível buscar os leads: ${cause.message}.`
           : "Não foi possível buscar os leads.",
       );
     } finally {
@@ -182,16 +182,50 @@ function Index() {
     }
   }
 
+  // async function handleExport() {
+  //   if (!visibleLeads?.length) return;
+  //   const XLSX = await import("xlsx");
+  //   const sheet = XLSX.utils.json_to_sheet(
+  //     visibleLeads.map((lead) => ({
+  //       Nome: lead.name,
+  //       Telefone: lead.phone || "—",
+  //       Endereço: lead.address || "—",
+  //       "Nota no Google": lead.rating ?? "N/A",
+  //       Avaliações: lead.reviews,
+  //       Oportunidade: isOpportunity(lead)
+  //         ? "Melhorar Reputação"
+  //         : (lead.rating ?? 0) >= 4.5
+  //           ? "Alta Avaliação"
+  //           : "Regular",
+  //       Site: lead.website || "—",
+  //     })),
+  //   );
+  //   sheet["!cols"] = [
+  //     { wch: 30 },
+  //     { wch: 18 },
+  //     { wch: 42 },
+  //     { wch: 14 },
+  //     { wch: 12 },
+  //     { wch: 20 },
+  //     { wch: 30 },
+  //   ];
+  //   const book = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(book, sheet, "Leads");
+  //   const label = [query.category, query.city].filter(Boolean).join("-").replace(/\s+/g, "_");
+  //   XLSX.writeFile(book, `leads-${label || "export"}.xlsx`);
+  // }
+
   async function handleExport() {
     if (!visibleLeads?.length) return;
     const XLSX = await import("xlsx");
+
     const sheet = XLSX.utils.json_to_sheet(
       visibleLeads.map((lead) => ({
         Nome: lead.name,
         Telefone: lead.phone || "—",
         Endereço: lead.address || "—",
         "Nota no Google": lead.rating ?? "N/A",
-        Avaliações: lead.reviews,
+        Avaliações: lead.reviews || "—",
         Oportunidade: isOpportunity(lead)
           ? "Melhorar Reputação"
           : (lead.rating ?? 0) >= 4.5
@@ -200,6 +234,7 @@ function Index() {
         Site: lead.website || "—",
       })),
     );
+
     sheet["!cols"] = [
       { wch: 30 },
       { wch: 18 },
@@ -209,8 +244,34 @@ function Index() {
       { wch: 20 },
       { wch: 30 },
     ];
+
+    const pitchData = [
+      ["GOSTARIA DE MAIS LEADS COMO ESTES?"],
+      [""],
+      ["Se a sua equipe comercial gostou desta amostra, nós podemos fornecer muito mais!"],
+      ["Entregamos listas validadas, segmentadas e prontas para colocar dinheiro no seu bolso."],
+      [""],
+      ["Nossos Planos:"],
+      ["100 Leads: R$ 20,00"],
+      ["500 Leads: R$ 97,00"],
+      ["1.000 Leads: R$ 147,00"],
+      ["Assinatura Mensal (Ilimitado): Consulte-nos!"],
+      [""],
+      ["Entre em contato e escale suas vendas hoje mesmo:"],
+      ["WhatsApp: (53) 984431591"],
+      ["E-mail: pereirawelton206@gmail.com"],
+    ];
+
+    const pitchSheet = XLSX.utils.aoa_to_sheet(pitchData);
+
+    // Deixa a coluna da aba de vendas bem larga (80 caracteres) para o texto caber perfeitamente
+    pitchSheet["!cols"] = [{ wch: 80 }];
+
     const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, sheet, "Leads");
+
+    XLSX.utils.book_append_sheet(book, sheet, "Leads (Grátis)");
+    XLSX.utils.book_append_sheet(book, pitchSheet, "Gostaria de mais leads");
+
     const label = [query.category, query.city].filter(Boolean).join("-").replace(/\s+/g, "_");
     XLSX.writeFile(book, `leads-${label || "export"}.xlsx`);
   }
@@ -624,15 +685,7 @@ function Pagination({
       return [1, 2, 3, 4, 5, "...", totalPages];
     }
     if (currentPage >= totalPages - 3) {
-      return [
-        1,
-        "...",
-        totalPages - 4,
-        totalPages - 3,
-        totalPages - 2,
-        totalPages - 1,
-        totalPages,
-      ];
+      return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
     }
     return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
   }, [currentPage, totalPages]);
