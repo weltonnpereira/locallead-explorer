@@ -9,7 +9,7 @@ from api.messages import router as messages_router
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="LeadRadar API")
-
+# para comitar
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=["*"], # colocar a url do front end

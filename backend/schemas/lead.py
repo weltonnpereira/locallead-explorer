@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from database.models import LeadStatus
-
+# para comitar
 class ScrapingRequest(BaseModel):
     term: str
     city: str

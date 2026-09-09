@@ -1,7 +1,7 @@
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
-
+# para comitar
 class ChannelEnum(str, Enum):
     whatsapp = "whatsapp"
     email = "email"

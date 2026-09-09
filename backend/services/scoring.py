@@ -32,7 +32,7 @@ def calculate_opportunity_score(
             reasons.append("Sem CTA de orçamento")
             
     # google
-
+# para comitar
     reviews = lead_data.get("google_reviews") or 0
 
     if reviews >= 100:

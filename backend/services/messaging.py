@@ -1,7 +1,7 @@
 from schemas.message import MessageRequest
 from schemas.message import ChannelEnum
 from schemas.message import TargetTypeEnum
-
+# para comitar
 def generate_pitch_message(data: MessageRequest) -> dict:
     channel = data.channel
     target = data.target_type

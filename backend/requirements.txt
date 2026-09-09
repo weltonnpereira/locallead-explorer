@@ -6,3 +6,4 @@ bs4
 # depois de instalar, rodamos:
 # "playwright install chromium"
 # "playwright install-deps"
+# para comitar

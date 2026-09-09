@@ -26,7 +26,7 @@ class Search(Base):
     location = Column(String, nullable=False)
     total_found = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
-    
+    # para comitar
     leads = relationship('Lead', secondary=search_lead_association, back_populates='searches')
     
 class Lead(Base):

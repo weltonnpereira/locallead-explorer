@@ -16,7 +16,7 @@ router = APIRouter(
     prefix="/api/v1",
     tags=["CRM"]
 )
-
+# para comitar
 @router.post("/leads/search")
 async def create_search(payload: ScrapingRequest, db: Session = Depends(get_db)):
     if not payload.term or not payload.city:

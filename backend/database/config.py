@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
+# para comitar
 SQLALCHEMY_DATABASE_URL = "sqlite:///./leads.db"
 #postgresql: "postgresql://user:password@localhost/dbname"
 

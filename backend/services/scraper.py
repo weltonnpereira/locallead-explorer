@@ -109,7 +109,7 @@ async def scrape_google_maps(search_terms: str, city: str, target_count: int = 2
                     await asyncio.sleep(1)
                     
                     maps_url = page.url
-                    
+                    # para comitar
                     if maps_url in seen_urls:
                         continue
                     

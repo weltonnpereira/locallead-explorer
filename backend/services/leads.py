@@ -2,7 +2,7 @@ import re
 import unicodedata
 from sqlalchemy.orm import Session
 from database.models import Lead, Search
-
+# para comitar
 def normalize_string(text: str) -> str:
     if not text:
         return ""
