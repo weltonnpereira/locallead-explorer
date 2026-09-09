@@ -14,6 +14,7 @@ import { Route as CampanhasRouteImport } from './routes/campanhas'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as PesquisasRouteImport } from './routes/pesquisas'
+import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const PesquisasRoute = PesquisasRouteImport.update({
   path: '/pesquisas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProspeccaoRoute = ProspeccaoRouteImport.update({
+  id: '/prospeccao',
+  path: '/prospeccao',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof ConfiguracoesRoute
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
+  '/prospeccao': typeof ProspeccaoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof ConfiguracoesRoute
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
+  '/prospeccao': typeof ProspeccaoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,14 +70,33 @@ export interface FileRoutesById {
   '/configuracoes': typeof ConfiguracoesRoute
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
+  '/prospeccao': typeof ProspeccaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/campanhas' | '/configuracoes' | '/leads' | '/pesquisas'
+  fullPaths:
+    | '/'
+    | '/campanhas'
+    | '/configuracoes'
+    | '/leads'
+    | '/pesquisas'
+    | '/prospeccao'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/campanhas' | '/configuracoes' | '/leads' | '/pesquisas'
+  to:
+    | '/'
+    | '/campanhas'
+    | '/configuracoes'
+    | '/leads'
+    | '/pesquisas'
+    | '/prospeccao'
   id:
-    '__root__' | '/' | '/campanhas' | '/configuracoes' | '/leads' | '/pesquisas'
+    | '__root__'
+    | '/'
+    | '/campanhas'
+    | '/configuracoes'
+    | '/leads'
+    | '/pesquisas'
+    | '/prospeccao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,6 +105,7 @@ export interface RootRouteChildren {
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   LeadsRoute: typeof LeadsRoute
   PesquisasRoute: typeof PesquisasRoute
+  ProspeccaoRoute: typeof ProspeccaoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -117,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PesquisasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prospeccao': {
+      id: '/prospeccao'
+      path: '/prospeccao'
+      fullPath: '/prospeccao'
+      preLoaderRoute: typeof ProspeccaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -126,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfiguracoesRoute: ConfiguracoesRoute,
   LeadsRoute: LeadsRoute,
   PesquisasRoute: PesquisasRoute,
+  ProspeccaoRoute: ProspeccaoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
