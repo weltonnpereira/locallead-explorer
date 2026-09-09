@@ -101,7 +101,11 @@ function Index() {
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [leads, setLeads] = useState<Lead[] | null>(null);
+  // const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [leads, setLeads] = useState<Lead[] | null>(() => {
+    const savedLeads = localStorage.getItem("leads_cache");
+    return savedLeads ? JSON.parse(savedLeads) : null;
+  });
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState({ category: "", city: "" });
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
@@ -168,9 +172,13 @@ function Index() {
     setSort(null);
     setPage(1);
     try {
+      setLoading(true);
       const result = await fetchLeads(category, city);
+
       setLeads(result);
       setQuery({ category: category.trim(), city: city.trim() });
+
+      localStorage.setItem("leads_cache", JSON.stringify(result));
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -180,6 +188,19 @@ function Index() {
     } finally {
       setLoading(false);
     }
+    // try {
+    //   const result = await fetchLeads(category, city);
+    //   setLeads(result);
+    //   setQuery({ category: category.trim(), city: city.trim() });
+    // } catch (cause) {
+    //   setError(
+    //     cause instanceof Error
+    //       ? `Não foi possível buscar os leads: ${cause.message}.`
+    //       : "Não foi possível buscar os leads.",
+    //   );
+    // } finally {
+    //   setLoading(false);
+    // }
   }
 
   // async function handleExport() {

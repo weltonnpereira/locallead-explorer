@@ -12,7 +12,7 @@ function record(error: unknown) {
 // no stack, no cause — so a plain console.error(error) reaches the log pipeline with
 // the failure detail stripped. Expand Error-like args into a string that keeps the
 // message, stack, and the full cause chain.
-const CAUSE_DEPTH_LIMIT = 5;
+const CAUSE_DEPTH_LIMIT = 20;
 const DESCRIPTION_LENGTH_LIMIT = 8_000;
 
 export function describeError(error: unknown): string {

@@ -7,7 +7,8 @@ export type Lead = {
   website: string;
 };
 
-const API_URL = "http://localhost:8000/api/v1/scrape";
+const API_URL = "http://127.0.0.1:8000/api/v1/scrape";
+// const API_URL = "https://residue-delegator-uneven.ngrok-free.dev/api/v1/scrape"
 
 function pick(row: Record<string, unknown>, keys: string[]): string {
   for (const key of keys) {
