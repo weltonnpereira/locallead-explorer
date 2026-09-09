@@ -1,0 +1,97 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { AppShell } from "@/components/layout/app-shell";
+import { PIPELINE_STAGES, pipelineCards, type PipelineStage } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/prospeccao")({
+  head: () => ({
+    meta: [
+      { title: "Prospecção — LeadRadar" },
+      {
+        name: "description",
+        content:
+          "Acompanhe seus leads selecionados por etapa: novo, contatado, respondeu, reunião, proposta e cliente.",
+      },
+      { property: "og:title", content: "Prospecção — LeadRadar" },
+      {
+        property: "og:description",
+        content: "Kanban de prospecção comercial dos leads selecionados.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: ProspeccaoPage,
+});
+
+function ProspeccaoPage() {
+  const [cards, setCards] = useState(pipelineCards);
+  const [dragging, setDragging] = useState<string | null>(null);
+
+  function moveTo(stage: PipelineStage) {
+    if (!dragging) return;
+    setCards((current) =>
+      current.map((card) => (card.id === dragging ? { ...card, stage } : card)),
+    );
+    setDragging(null);
+  }
+
+  return (
+    <AppShell title="Prospecção" subtitle="Acompanhe os leads selecionados por etapa">
+      <div className="flex gap-3 overflow-x-auto pb-3">
+        {PIPELINE_STAGES.map((stage) => {
+          const list = cards.filter((card) => card.stage === stage);
+          return (
+            <div
+              key={stage}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => moveTo(stage)}
+              className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-card/60 p-3"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {stage}
+                </p>
+                <span className="text-xs tabular-nums text-muted-foreground">{list.length}</span>
+              </div>
+              <div className="space-y-2">
+                {list.map((card) => (
+                  <article
+                    key={card.id}
+                    draggable
+                    onDragStart={() => setDragging(card.id)}
+                    onDragEnd={() => setDragging(null)}
+                    className={cn(
+                      "cursor-grab rounded-lg border border-border bg-card p-3 transition-opacity active:cursor-grabbing",
+                      dragging === card.id && "opacity-50",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium leading-tight">{card.name}</p>
+                      <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
+                        {card.score}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {card.niche} · {card.city}
+                    </p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Último contato: {card.lastContact}
+                    </p>
+                  </article>
+                ))}
+                {!list.length && (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
+                    Arraste leads para cá
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </AppShell>
+  );
+}
