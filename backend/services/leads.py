@@ -50,11 +50,19 @@ def save_scraped_leads(db: Session, scraped_leads: list, search: Search) -> dict
             if search not in existing.searches:
                 existing.searches.append(search)
                 
-            existing.phone = item.get("phone") or existing.phone
-            existing.address = item.get("address") or existing.address
-            existing.website = item.get("website") or existing.website
-            existing.google_rating = item.get("rating") or existing.google_rating
-            existing.google_reviews = item.get("reviews") or existing.google_reviews
+            # Usa o novo valor se não for None; mantém o antigo caso contrário.
+            # Evita usar `or` pois 0 e 0.0 são falsy e seriam descartados incorretamente.
+            new_phone = item.get("phone")
+            new_address = item.get("address")
+            new_website = item.get("website")
+            new_rating = item.get("rating")
+            new_reviews = item.get("reviews")
+
+            existing.phone = new_phone if new_phone is not None else existing.phone
+            existing.address = new_address if new_address is not None else existing.address
+            existing.website = new_website if new_website is not None else existing.website
+            existing.google_rating = new_rating if new_rating is not None else existing.google_rating
+            existing.google_reviews = new_reviews if new_reviews is not None else existing.google_reviews
             existing.score = item.get("opportunity_score")
             existing.opportunity = item.get("opportunity_reason")
                 

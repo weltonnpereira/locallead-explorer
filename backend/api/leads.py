@@ -42,6 +42,11 @@ async def create_search(payload: ScrapingRequest, db: Session = Depends(get_db))
 
     return {"search_id": search.id, "summary": summary}
 
+@router.get("/leads/count")
+def get_leads_count(db: Session = Depends(get_db)):
+    total_leads = db.query(Lead).count()
+    return {"total": total_leads}
+
 @router.get("/leads")
 def list_leads(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     leads = db.query(Lead).order_by(Lead.score.desc()).offset(skip).limit(limit).all()
