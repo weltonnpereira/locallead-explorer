@@ -2,8 +2,39 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { PIPELINE_STAGES, pipelineCards, type PipelineStage } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  PIPELINE_STAGES,
+  pipelineCards,
+  type PipelineCard,
+  type PipelineStage,
+} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+type PendingMove = {
+  cardId: string;
+  cardName: string;
+  stage: "Proposta" | "Cliente";
+};
+
+function formatBRL(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  return (Number(digits) / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
 
 export const Route = createFileRoute("/prospeccao")({
   head: () => ({
