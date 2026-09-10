@@ -2,8 +2,39 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { PIPELINE_STAGES, pipelineCards, type PipelineStage } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  PIPELINE_STAGES,
+  pipelineCards,
+  type PipelineCard,
+  type PipelineStage,
+} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+type PendingMove = {
+  cardId: string;
+  cardName: string;
+  stage: "Proposta" | "Cliente";
+};
+
+function formatBRL(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  return (Number(digits) / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
 
 export const Route = createFileRoute("/prospeccao")({
   head: () => ({
@@ -27,15 +58,42 @@ export const Route = createFileRoute("/prospeccao")({
 });
 
 function ProspeccaoPage() {
-  const [cards, setCards] = useState(pipelineCards);
+  const [cards, setCards] = useState<PipelineCard[]>(pipelineCards);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [valueInput, setValueInput] = useState("");
+
+  function applyMove(cardId: string, stage: PipelineStage, extra?: Partial<PipelineCard>) {
+    setCards((current) =>
+      current.map((card) => (card.id === cardId ? { ...card, ...extra, stage } : card)),
+    );
+  }
 
   function moveTo(stage: PipelineStage) {
     if (!dragging) return;
-    setCards((current) =>
-      current.map((card) => (card.id === dragging ? { ...card, stage } : card)),
-    );
+    const card = cards.find((item) => item.id === dragging);
+    if (!card) {
+      setDragging(null);
+      return;
+    }
+    if (stage === "Proposta" || stage === "Cliente") {
+      setPendingMove({ cardId: card.id, cardName: card.name, stage });
+      setValueInput(stage === "Proposta" ? (card.proposalValue ?? "") : (card.closedValue ?? ""));
+    } else {
+      applyMove(card.id, stage);
+    }
     setDragging(null);
+  }
+
+  function confirmValue() {
+    if (!pendingMove) return;
+    const extra: Partial<PipelineCard> =
+      pendingMove.stage === "Proposta"
+        ? { proposalValue: valueInput }
+        : { closedValue: valueInput };
+    applyMove(pendingMove.cardId, pendingMove.stage, extra);
+    setPendingMove(null);
+    setValueInput("");
   }
 
   return (
@@ -80,6 +138,16 @@ function ProspeccaoPage() {
                     <p className="mt-2 text-[11px] text-muted-foreground">
                       Último contato: {card.lastContact}
                     </p>
+                    {card.proposalValue && (
+                      <p className="mt-1 text-[11px] font-medium">
+                        Proposta: {card.proposalValue}
+                      </p>
+                    )}
+                    {card.closedValue && (
+                      <p className="mt-1 text-[11px] font-medium">
+                        Fechamento: {card.closedValue}
+                      </p>
+                    )}
                   </article>
                 ))}
                 {!list.length && (
@@ -92,6 +160,54 @@ function ProspeccaoPage() {
           );
         })}
       </div>
+
+      <Dialog
+        open={pendingMove !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingMove(null);
+            setValueInput("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingMove?.stage === "Proposta" ? "Valor da proposta" : "Valor de fechamento"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingMove?.stage === "Proposta"
+                ? `Informe o valor da proposta enviada para ${pendingMove?.cardName ?? "o lead"}.`
+                : `Informe o valor fechado com ${pendingMove?.cardName ?? "o lead"}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="deal-value">Valor (R$)</Label>
+            <Input
+              id="deal-value"
+              inputMode="numeric"
+              placeholder="R$ 0,00"
+              autoFocus
+              value={valueInput}
+              onChange={(event) => setValueInput(formatBRL(event.target.value))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  confirmValue();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingMove(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmValue} disabled={!valueInput.trim()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

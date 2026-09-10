@@ -139,6 +139,8 @@ export type PipelineCard = {
   score: number;
   lastContact: string;
   stage: PipelineStage;
+  proposalValue?: string;
+  closedValue?: string;
 };
 
 export const pipelineCards: PipelineCard[] = [
