@@ -58,15 +58,42 @@ export const Route = createFileRoute("/prospeccao")({
 });
 
 function ProspeccaoPage() {
-  const [cards, setCards] = useState(pipelineCards);
+  const [cards, setCards] = useState<PipelineCard[]>(pipelineCards);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [valueInput, setValueInput] = useState("");
+
+  function applyMove(cardId: string, stage: PipelineStage, extra?: Partial<PipelineCard>) {
+    setCards((current) =>
+      current.map((card) => (card.id === cardId ? { ...card, ...extra, stage } : card)),
+    );
+  }
 
   function moveTo(stage: PipelineStage) {
     if (!dragging) return;
-    setCards((current) =>
-      current.map((card) => (card.id === dragging ? { ...card, stage } : card)),
-    );
+    const card = cards.find((item) => item.id === dragging);
+    if (!card) {
+      setDragging(null);
+      return;
+    }
+    if (stage === "Proposta" || stage === "Cliente") {
+      setPendingMove({ cardId: card.id, cardName: card.name, stage });
+      setValueInput(stage === "Proposta" ? (card.proposalValue ?? "") : (card.closedValue ?? ""));
+    } else {
+      applyMove(card.id, stage);
+    }
     setDragging(null);
+  }
+
+  function confirmValue() {
+    if (!pendingMove) return;
+    const extra: Partial<PipelineCard> =
+      pendingMove.stage === "Proposta"
+        ? { proposalValue: valueInput }
+        : { closedValue: valueInput };
+    applyMove(pendingMove.cardId, pendingMove.stage, extra);
+    setPendingMove(null);
+    setValueInput("");
   }
 
   return (
