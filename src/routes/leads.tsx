@@ -42,6 +42,9 @@ import {
   fetchAllLeads,
   fetchLeads,
   fetchLeadsBySearch,
+  updateLeadDeal,
+  updateLeadProposal,
+  updateLeadStatus,
   whatsappLink,
   type Lead,
   type SearchProgress,
@@ -736,6 +739,7 @@ function CopyButton({ value }: { value: string }) {
 
 function LeadDetails({ row }: { row: Row }) {
   const { lead, insight } = row;
+  const [status, setStatus] = useState(lead.status ?? "NEW");
   const link = whatsappLink(lead.phone);
   const message = suggestionFor(lead, insight);
   const presence: [string, boolean][] = [
@@ -786,6 +790,51 @@ function LeadDetails({ row }: { row: Row }) {
           value={`${lead.rating !== null ? lead.rating.toFixed(1) : "N/A"} · ${lead.reviews} avaliações`}
         />
         <DetailRow label="Site" value={lead.website || "—"} />
+        <DetailRow
+          label="Proposta"
+          value={lead.proposal_value != null ? `R$ ${lead.proposal_value.toFixed(2)}` : "—"}
+        />
+        <DetailRow
+          label="Negócio fechado"
+          value={lead.deal_value != null ? `R$ ${lead.deal_value.toFixed(2)}` : "—"}
+        />
+        <label className="flex items-center justify-between gap-4 border-b border-border pb-2 text-xs">
+          <span className="text-muted-foreground">Status</span>
+          <select
+            value={status}
+            className="rounded border border-border bg-background px-2 py-1 text-xs"
+            onChange={async (event) => {
+              const nextStatus = event.target.value as Lead["status"];
+              if (!nextStatus || !lead.id) return;
+              if (nextStatus === "PROPOSAL") {
+                const value = Number(window.prompt("Valor da proposta"));
+                if (!Number.isFinite(value) || value < 0) return;
+                await updateLeadProposal(lead.id, value);
+              } else if (nextStatus === "CUSTOMER") {
+                const value = Number(window.prompt("Valor fechado"));
+                if (!Number.isFinite(value) || value < 0) return;
+                await updateLeadDeal(lead.id, value);
+              } else {
+                await updateLeadStatus(lead.id, nextStatus);
+              }
+              setStatus(nextStatus);
+            }}
+          >
+            {[
+              ["NEW", "Novo"],
+              ["CONTACTED", "Contatado"],
+              ["REPLIED", "Respondeu"],
+              ["MEETING", "Reunião"],
+              ["PROPOSAL", "Proposta"],
+              ["CUSTOMER", "Cliente"],
+              ["LOST", "Perdido"],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex flex-wrap gap-2">

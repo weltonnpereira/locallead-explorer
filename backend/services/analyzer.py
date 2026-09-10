@@ -18,7 +18,6 @@ ANALYSIS_CACHE_TIMESTAMPS: Dict[str, float] = {}
 DEFAULT_ANALYSIS_TTL_SECONDS = 24 * 60 * 60
 ANALYSIS_LOCKS: Dict[str, asyncio.Lock] = {}
 
-
 def _empty_analysis() -> Dict[str, Any]:
     return {
         "has_website": False,

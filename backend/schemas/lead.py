@@ -54,6 +54,9 @@ class LeadResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     in_prospecting: bool = False
+    proposal_value: float | None = None
+    deal_value: float | None = None
+    deal_closed_at: datetime | None = None
     
     class ConfigDict:
         from_attributes = True

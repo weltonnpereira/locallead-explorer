@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { campaigns } from "@/lib/mock-data";
+import { fetchCampaigns, type Campaign } from "@/lib/leads";
 
 export const Route = createFileRoute("/campanhas")({
   head: () => ({
@@ -21,8 +22,30 @@ export const Route = createFileRoute("/campanhas")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: () => (
+  component: CampanhasPage,
+});
+
+function CampanhasPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCampaigns()
+      .then(setCampaigns)
+      .catch((cause) =>
+        setError(
+          cause instanceof Error ? cause.message : "Não foi possível carregar as campanhas.",
+        ),
+      );
+  }, []);
+
+  return (
     <AppShell title="Campanhas" subtitle="Resultado comercial de cada campanha de prospecção">
+      {error && (
+        <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <div className="grid gap-3 lg:grid-cols-2">
         {campaigns.map((campaign) => (
           <article key={campaign.name} className="rounded-xl border border-border bg-card p-5">
@@ -30,7 +53,8 @@ export const Route = createFileRoute("/campanhas")({
               <div>
                 <h2 className="text-sm font-semibold">{campaign.name}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {campaign.niche} · {campaign.location} · {campaign.date}
+                  {campaign.category} · {campaign.city} ·{" "}
+                  {new Date(campaign.created_at).toLocaleDateString("pt-BR")}
                 </p>
               </div>
               <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
@@ -44,7 +68,7 @@ export const Route = createFileRoute("/campanhas")({
                 ["Contatados", campaign.contacted],
                 ["Respostas", campaign.replies],
                 ["Reuniões", campaign.meetings],
-                ["Clientes", campaign.clients],
+                ["Clientes", campaign.customers],
               ].map(([label, value]) => (
                 <div key={String(label)}>
                   <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -56,11 +80,11 @@ export const Route = createFileRoute("/campanhas")({
             </dl>
             <p className="mt-4 border-t border-border pt-3 text-sm">
               <span className="text-muted-foreground">Valor gerado: </span>
-              <span className="font-semibold">{campaign.revenue}</span>
+              <span className="font-semibold">R$ {campaign.generated_value.toFixed(2)}</span>
             </p>
           </article>
         ))}
       </div>
     </AppShell>
-  ),
-});
+  );
+}

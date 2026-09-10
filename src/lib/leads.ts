@@ -11,6 +11,9 @@ export type Lead = {
   opportunity?: string | null;
   status?: LeadStatus;
   in_prospecting?: boolean;
+  proposal_value?: number | null;
+  deal_value?: number | null;
+  deal_closed_at?: string | null;
 };
 
 export type LeadStatus =
@@ -29,6 +32,37 @@ export type SearchHistoryItem = {
   term: string;
   city: string;
   leads: number;
+  created_at: string;
+};
+
+export type DashboardData = {
+  metrics: { label: string; value: number | string; hint: string }[];
+  funnel: { label: string; value: number }[];
+  campaigns: Campaign[];
+  niches: {
+    niche: string;
+    leads: number;
+    contacted: number;
+    replies: number;
+    meetings: number;
+    customers: number;
+    conversion: string;
+  }[];
+};
+
+export type Campaign = {
+  id: number;
+  name: string;
+  category: string | null;
+  city: string | null;
+  status: string;
+  leads: number;
+  opportunities: number;
+  contacted: number;
+  replies: number;
+  meetings: number;
+  customers: number;
+  generated_value: number;
   created_at: string;
 };
 
@@ -66,6 +100,9 @@ function normalize(row: Record<string, unknown>): Lead {
     ...(typeof row["in_prospecting"] === "boolean"
       ? { in_prospecting: row["in_prospecting"] }
       : {}),
+    ...(typeof row["proposal_value"] === "number" ? { proposal_value: row["proposal_value"] } : {}),
+    ...(typeof row["deal_value"] === "number" ? { deal_value: row["deal_value"] } : {}),
+    ...(typeof row["deal_closed_at"] === "string" ? { deal_closed_at: row["deal_closed_at"] } : {}),
     ...(id !== null ? { id } : {}),
   };
 }
@@ -118,11 +155,41 @@ export async function fetchSearchHistory(): Promise<SearchHistoryItem[]> {
   return (await response.json()) as SearchHistoryItem[];
 }
 
+export async function fetchDashboard(): Promise<DashboardData> {
+  const response = await fetch(`${API_ROOT}/dashboard`);
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as DashboardData;
+}
+
+export async function fetchCampaigns(): Promise<Campaign[]> {
+  const response = await fetch(`${API_ROOT}/campaigns`);
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as Campaign[];
+}
+
 export async function updateLeadStatus(id: number, status: LeadStatus): Promise<void> {
   const response = await fetch(`${API_ROOT}/leads/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
+export async function updateLeadProposal(id: number, value: number): Promise<void> {
+  const response = await fetch(`${API_ROOT}/leads/${id}/proposal`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
+export async function updateLeadDeal(id: number, value: number, closedAt?: string): Promise<void> {
+  const response = await fetch(`${API_ROOT}/leads/${id}/deal`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value, closed_at: closedAt }),
   });
   if (!response.ok) throw new Error(await readError(response));
 }

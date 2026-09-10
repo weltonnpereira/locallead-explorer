@@ -12,10 +12,21 @@ class LeadStatus(str, enum.Enum):
     PROPOSAL = "PROPOSAL"
     CUSTOMER = "CUSTOMER"
     LOST = "LOST"
+
+class CampaignStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    COMPLETED = "COMPLETED"
     
 search_lead_association = Table(
     'search_lead', Base.metadata,
     Column('search_id', Integer, ForeignKey('searches.id'), primary_key=True),
+    Column('lead_id', Integer, ForeignKey('leads.id'), primary_key=True)
+)
+
+campaign_lead_association = Table(
+    'campaign_lead', Base.metadata,
+    Column('campaign_id', Integer, ForeignKey('campaigns.id'), primary_key=True),
     Column('lead_id', Integer, ForeignKey('leads.id'), primary_key=True)
 )
 
@@ -28,6 +39,17 @@ class Search(Base):
     created_at = Column(DateTime, default=func.now())
     # para comitar
     leads = relationship('Lead', secondary=search_lead_association, back_populates='searches')
+
+
+class Campaign(Base):
+    __tablename__ = 'campaigns'
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    category = Column(String)
+    city = Column(String)
+    status = Column(Enum(CampaignStatus), nullable=False, default=CampaignStatus.ACTIVE)
+    created_at = Column(DateTime, default=func.now())
+    leads = relationship('Lead', secondary=campaign_lead_association, back_populates='campaigns')
 
 
 class WebsiteAnalysis(Base):
@@ -77,5 +99,9 @@ class Lead(Base):
     last_analyzed_at = Column(DateTime, nullable=True)
     last_scraped_at = Column(DateTime, nullable=True)
     in_prospecting = Column(Boolean, nullable=False, default=False, index=True)
+    proposal_value = Column(Integer, nullable=True)
+    deal_value = Column(Integer, nullable=True)
+    deal_closed_at = Column(DateTime, nullable=True)
     
     searches = relationship('Search', secondary=search_lead_association, back_populates='leads')
+    campaigns = relationship('Campaign', secondary=campaign_lead_association, back_populates='leads')

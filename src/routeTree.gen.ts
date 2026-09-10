@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CampanhasRouteImport } from './routes/campanhas'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as PesquisasRouteImport } from './routes/pesquisas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
@@ -29,6 +30,11 @@ const CampanhasRoute = CampanhasRouteImport.update({
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeadsRoute = LeadsRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/dashboard': typeof DashboardRoute
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
   '/prospeccao': typeof ProspeccaoRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/dashboard': typeof DashboardRoute
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
   '/prospeccao': typeof ProspeccaoRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/dashboard': typeof DashboardRoute
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
   '/prospeccao': typeof ProspeccaoRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/campanhas'
     | '/configuracoes'
+    | '/dashboard'
     | '/leads'
     | '/pesquisas'
     | '/prospeccao'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/campanhas'
     | '/configuracoes'
+    | '/dashboard'
     | '/leads'
     | '/pesquisas'
     | '/prospeccao'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/campanhas'
     | '/configuracoes'
+    | '/dashboard'
     | '/leads'
     | '/pesquisas'
     | '/prospeccao'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CampanhasRoute: typeof CampanhasRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
+  DashboardRoute: typeof DashboardRoute
   LeadsRoute: typeof LeadsRoute
   PesquisasRoute: typeof PesquisasRoute
   ProspeccaoRoute: typeof ProspeccaoRoute
@@ -129,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof ConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leads': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CampanhasRoute: CampanhasRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
+  DashboardRoute: DashboardRoute,
   LeadsRoute: LeadsRoute,
   PesquisasRoute: PesquisasRoute,
   ProspeccaoRoute: ProspeccaoRoute,

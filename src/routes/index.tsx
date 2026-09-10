@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   CalendarCheck,
   MessageSquare,
@@ -20,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { campaigns, dashboardMetrics, funnelStages, nichePerformance } from "@/lib/mock-data";
+import { fetchDashboard, type DashboardData } from "@/lib/leads";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -52,8 +53,19 @@ const ICONS: Record<string, LucideIcon> = {
   trophy: Trophy,
 };
 
-function Dashboard() {
-  const max = Math.max(...funnelStages.map((stage) => stage.value));
+export function Dashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDashboard()
+      .then(setData)
+      .catch((cause) =>
+        setError(cause instanceof Error ? cause.message : "Não foi possível carregar o dashboard."),
+      );
+  }, []);
+
+  const max = Math.max(...(data?.funnel.map((stage) => stage.value) ?? [1]));
 
   return (
     <AppShell
@@ -68,9 +80,14 @@ function Dashboard() {
         </Button>
       }
     >
+      {error && (
+        <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {dashboardMetrics.map((metric) => {
-          const Icon = ICONS[metric.icon] ?? Users;
+        {(data?.metrics ?? []).map((metric) => {
+          const Icon = Users;
           return (
             <MetricCard
               key={metric.label}
@@ -85,7 +102,7 @@ function Dashboard() {
 
       <PageSection title="Funil de prospecção" description="Do lead encontrado ao cliente fechado">
         <div className="space-y-2 rounded-xl border border-border bg-card p-5">
-          {funnelStages.map((stage) => (
+          {(data?.funnel ?? []).map((stage) => (
             <div key={stage.label} className="flex items-center gap-4">
               <span className="w-28 shrink-0 text-xs text-muted-foreground">{stage.label}</span>
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
@@ -115,14 +132,14 @@ function Dashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {nichePerformance.map((row) => (
+              {(data?.niches ?? []).map((row) => (
                 <TableRow key={row.niche}>
                   <TableCell className="font-medium">{row.niche}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.leads}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.contacted}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.replies}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.meetings}</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.clients}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.customers}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.conversion}</TableCell>
                 </TableRow>
               ))}
@@ -156,18 +173,20 @@ function Dashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {campaigns.map((campaign) => (
-                <TableRow key={campaign.name}>
+              {(data?.campaigns ?? []).map((campaign) => (
+                <TableRow key={campaign.id}>
                   <TableCell className="font-medium">{campaign.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{campaign.niche}</TableCell>
-                  <TableCell className="text-muted-foreground">{campaign.location}</TableCell>
+                  <TableCell className="text-muted-foreground">{campaign.category}</TableCell>
+                  <TableCell className="text-muted-foreground">{campaign.city}</TableCell>
                   <TableCell className="text-right tabular-nums">{campaign.leads}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {campaign.opportunities}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{campaign.contacted}</TableCell>
-                  <TableCell className="text-right tabular-nums">{campaign.clients}</TableCell>
-                  <TableCell className="text-right tabular-nums">{campaign.revenue}</TableCell>
+                  <TableCell className="text-right tabular-nums">{campaign.customers}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {campaign.generated_value}
+                  </TableCell>
                   <TableCell className="text-right">
                     <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
                       {campaign.status}

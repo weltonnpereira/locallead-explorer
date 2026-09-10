@@ -189,6 +189,9 @@ async def list_leads(
             created_at=lead.created_at,
             updated_at=lead.updated_at,
             in_prospecting=lead.in_prospecting,
+            proposal_value=lead.proposal_value,
+            deal_value=lead.deal_value,
+            deal_closed_at=lead.deal_closed_at,
         ).model_dump(mode="json"))
     
     if redis:
@@ -224,6 +227,8 @@ def get_lead(lead_id: int, db: Session = Depends(get_db)):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    if not lead.in_prospecting:
+        raise HTTPException(status_code=409, detail="Adicione o lead à prospecção antes de alterar o status.")
     return lead
 
 # no futuro por isso pode ser atualizado a todo momento podemos simplesmente adicionar em um cache

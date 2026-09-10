@@ -41,7 +41,7 @@ function ProspeccaoPage() {
     let active = true;
     fetchProspectingLeads()
       .then((result) => {
-        console.log(result);
+        console.log(result)
         if (active) setLeads(result);
       })
       .catch((cause) => {

@@ -7,6 +7,7 @@ from database.config import init_redis, close_redis
 
 from api.leads import router as leads_router
 from api.messages import router as messages_router
+from api.crm import router as crm_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +42,7 @@ async def add_security_headers(request: Request, call_next):
 
 app.include_router(leads_router)
 app.include_router(messages_router)
+app.include_router(crm_router)
 
 if __name__ == "__main__":
     import uvicorn
