@@ -138,6 +138,16 @@ function ProspeccaoPage() {
                     <p className="mt-2 text-[11px] text-muted-foreground">
                       Último contato: {card.lastContact}
                     </p>
+                    {card.proposalValue && (
+                      <p className="mt-1 text-[11px] font-medium">
+                        Proposta: {card.proposalValue}
+                      </p>
+                    )}
+                    {card.closedValue && (
+                      <p className="mt-1 text-[11px] font-medium">
+                        Fechamento: {card.closedValue}
+                      </p>
+                    )}
                   </article>
                 ))}
                 {!list.length && (
