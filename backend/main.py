@@ -1,15 +1,21 @@
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from database.config import engine, Base
+from database.config import init_redis, close_redis
 
 from api.leads import router as leads_router
 from api.messages import router as messages_router
 
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_redis()
+    yield
+    await close_redis()
 
-app = FastAPI(title="LeadRadar API")
-# para comitar
+app = FastAPI(title="LeadRadar API", lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=["*"], # colocar a url do front end
@@ -18,6 +24,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    res = await call_next(request)
+    
+    res.headers["X-Frame-Options"] = "DENY"
+    
+    res.headers["X-Content-Type-Options"] = "nosniff"
+    
+    res.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    res.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    return res
 
 app.include_router(leads_router)
 app.include_router(messages_router)

@@ -37,7 +37,7 @@ export function getInsight(lead: Lead): LeadInsight {
   const whatsapp = Boolean(lead.phone);
   const instagram = hash % 3 !== 0;
   const form = site && hash % 2 === 0;
-  const https = site && !lead.website.startsWith("http://");
+  const https = site && !lead.website?.startsWith("http://");
   const responsive = site && hash % 5 !== 0;
   const quotePage = site && hash % 4 === 0;
 
@@ -56,8 +56,7 @@ export function getInsight(lead: Lead): LeadInsight {
   if (!site && (lead.rating ?? 0) >= 4.5)
     opportunities.push("Empresa possui ótima avaliação no Google, mas não possui site.");
   if (!site) opportunities.push("Presença digital própria fraca — sem site encontrado.");
-  if (site && !form)
-    opportunities.push("Empresa possui site, porém sem formulário de orçamento.");
+  if (site && !form) opportunities.push("Empresa possui site, porém sem formulário de orçamento.");
   if (whatsapp && !site)
     opportunities.push("Empresa possui WhatsApp, mas nenhum canal digital próprio.");
   if (!opportunities.length)
@@ -73,7 +72,13 @@ export function getInsight(lead: Lead): LeadInsight {
           ? "Boa reputação"
           : "Presença digital fraca";
 
-  return { score, factors, presence: { site, whatsapp, instagram, form, https, responsive, quotePage }, opportunities, label };
+  return {
+    score,
+    factors,
+    presence: { site, whatsapp, instagram, form, https, responsive, quotePage },
+    opportunities,
+    label,
+  };
 }
 
 export function suggestionFor(lead: Lead, insight: LeadInsight) {

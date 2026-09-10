@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table, Enum, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table, Enum, Text, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database.config import Base
@@ -28,6 +28,24 @@ class Search(Base):
     created_at = Column(DateTime, default=func.now())
     # para comitar
     leads = relationship('Lead', secondary=search_lead_association, back_populates='searches')
+
+
+class WebsiteAnalysis(Base):
+    __tablename__ = 'website_analyses'
+
+    id = Column(Integer, primary_key=True, index=True)
+    website_url = Column(String, nullable=False, unique=True, index=True)
+    has_website = Column(Boolean, nullable=False, default=False)
+    has_https = Column(Boolean, nullable=False, default=False)
+    has_whatsapp = Column(Boolean, nullable=False, default=False)
+    has_instagram = Column(Boolean, nullable=False, default=False)
+    has_form = Column(Boolean, nullable=False, default=False)
+    has_budget_cta = Column(Boolean, nullable=False, default=False)
+    has_phone_on_site = Column(Boolean, nullable=False, default=False)
+    is_custom_domain = Column(Boolean, nullable=False, default=False)
+    site_status = Column(String)
+    keywords_found = Column(Text, nullable=False, default='[]')
+    analyzed_at = Column(DateTime, nullable=False, default=func.now())
     
 class Lead(Base):
     __tablename__ = 'leads'
@@ -57,5 +75,7 @@ class Lead(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     last_contact_at = Column(DateTime, nullable=True)
     last_analyzed_at = Column(DateTime, nullable=True)
+    last_scraped_at = Column(DateTime, nullable=True)
+    in_prospecting = Column(Boolean, nullable=False, default=False, index=True)
     
     searches = relationship('Search', secondary=search_lead_association, back_populates='leads')

@@ -4,6 +4,11 @@ pydantic
 playwright
 bs4
 SQLAlchemy
+python-dotenv
+psycopg2-binary
+pytest
+redis
+alembic
 # depois de instalar, rodamos:
 # "playwright install chromium"
 # "playwright install-deps"
