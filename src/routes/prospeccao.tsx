@@ -160,6 +160,54 @@ function ProspeccaoPage() {
           );
         })}
       </div>
+
+      <Dialog
+        open={pendingMove !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingMove(null);
+            setValueInput("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingMove?.stage === "Proposta" ? "Valor da proposta" : "Valor de fechamento"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingMove?.stage === "Proposta"
+                ? `Informe o valor da proposta enviada para ${pendingMove?.cardName ?? "o lead"}.`
+                : `Informe o valor fechado com ${pendingMove?.cardName ?? "o lead"}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="deal-value">Valor (R$)</Label>
+            <Input
+              id="deal-value"
+              inputMode="numeric"
+              placeholder="R$ 0,00"
+              autoFocus
+              value={valueInput}
+              onChange={(event) => setValueInput(formatBRL(event.target.value))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  confirmValue();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingMove(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmValue} disabled={!valueInput.trim()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
