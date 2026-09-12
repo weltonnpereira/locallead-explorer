@@ -177,7 +177,7 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
 export async function updateLeadStatus(
   id: number,
   status: LeadStatus,
-  extraValue?: string,
+  extraValue?: number,
 ): Promise<void> {
   const payload: Record<string, unknown> = { status };
 

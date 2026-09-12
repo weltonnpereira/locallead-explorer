@@ -24,7 +24,7 @@ import {
   type Lead,
   type LeadStatus,
 } from "@/lib/leads";
-import { cn } from "@/lib/utils";
+import { cn, formatBRL } from "@/lib/utils";
 
 export const Route = createFileRoute("/prospeccao")({
   head: () => ({ meta: [{ title: "Prospecção — LeadRadar" }] }),
@@ -40,16 +40,6 @@ const STAGES: { id: LeadStatus; label: string }[] = [
   { id: "CUSTOMER", label: "Cliente" },
   { id: "LOST", label: "Perdido" },
 ];
-
-function formatBRL(value: string) {
-  const numeric = value.replace(/\D/g, "");
-  if (!numeric) return "";
-  const amount = new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(Number(numeric) / 100);
-  return amount;
-}
 
 type PendingMove = {
   leadId: number;
@@ -88,28 +78,31 @@ function ProspeccaoPage() {
     };
   }, []);
 
-  async function executeMove(leadId: number, status: LeadStatus, extraValue?: string) {
+  async function executeMove(leadId: number, status: LeadStatus, extraValue?: number) {
     const previous = leads;
 
     setLeads((current) =>
       current.map((lead) => {
         if (lead.id !== leadId) return lead;
 
-        const extra =
-          status === "PROPOSAL"
-            ? { proposalValue: extraValue }
-            : status === "CUSTOMER"
-              ? { closedValue: extraValue }
-              : {};
+        if (extraValue) {
+          const extra =
+            status === "PROPOSAL"
+              ? { proposal_value: extraValue }
+              : status === "CUSTOMER"
+                ? { deal_value: extraValue }
+                : {};
+          return { ...lead, status, ...extra };
+        }
 
-        return { ...lead, status, ...extra };
+        return { ...lead, status };
       }),
     );
 
     try {
       await updateLeadStatus(leadId, status, extraValue);
     } catch (cause) {
-      setLeads(previous); 
+      setLeads(previous);
       setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o status.");
     }
   }
@@ -125,11 +118,7 @@ function ProspeccaoPage() {
 
     if (status === "PROPOSAL" || status === "CUSTOMER") {
       setPendingMove({ leadId: lead.id!, leadName: lead.name, status });
-      // Se já existir valor prévio, preenche o input (opcional)
-      // const existingValue = status === "PROPOSAL" ? lead.proposalValue : lead.closedValue;
-      // setValueInput(existingValue || "");
     } else {
-      // Se não, move imediatamente
       void executeMove(lead.id!, status);
     }
 
@@ -138,7 +127,11 @@ function ProspeccaoPage() {
 
   function confirmValue() {
     if (!pendingMove) return;
-    void executeMove(pendingMove.leadId, pendingMove.status, valueInput);
+
+    const num = valueInput.replace(/\D/g, "");
+    const valueInCents = parseInt(num || "0", 10);
+
+    void executeMove(pendingMove.leadId, pendingMove.status, valueInCents);
     setPendingMove(null);
     setValueInput("");
   }
@@ -209,13 +202,13 @@ function ProspeccaoPage() {
 
                         {lead.proposal_value && (
                           <p className="mt-2 text-[11px] font-medium text-primary">
-                            Proposta: {lead.proposal_value}
+                            Proposta: {formatBRL(lead.proposal_value.toString())}
                           </p>
                         )}
 
                         {lead.deal_value && (
                           <p className="mt-2 text-[11px] font-medium text-green-600 dark:text-green-400">
-                            Fechamento: {lead.deal_value}
+                            Fechamento: {formatBRL(lead.deal_value.toString())}
                           </p>
                         )}
 
@@ -356,11 +349,11 @@ function ProspectingLeadDetails({ lead }: { lead: Lead }) {
         <DetailRow label="Site" value={lead.website || "—"} />
         <DetailRow
           label="Proposta"
-          value={lead.proposal_value != null ? `R$ ${lead.proposal_value.toFixed(2)}` : "—"}
+          value={lead.proposal_value != null ? formatBRL(lead.proposal_value.toString()) : "—"}
         />
         <DetailRow
           label="Negócio fechado"
-          value={lead.deal_value != null ? `R$ ${lead.deal_value.toFixed(2)}` : "—"}
+          value={lead.deal_value != null ? formatBRL(lead.deal_value.toString()) : "—"}
         />
       </div>
 

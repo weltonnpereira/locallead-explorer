@@ -22,9 +22,14 @@ async def clear_leads_cache():
         return
 
     try:
-        keys = await redis_client.keys("leads:*")
-        if keys:
-            await redis_client.delete(*keys)
+        leads_keys = await redis_client.keys("leads:*")
+
+        dashboard_keys = await redis_client.keys("dashboard:*")
+
+        all_keys_to_delete = leads_keys + dashboard_keys
+
+        if all_keys_to_delete:
+            await redis_client.delete(*all_keys_to_delete)
     except Exception:
         pass
 

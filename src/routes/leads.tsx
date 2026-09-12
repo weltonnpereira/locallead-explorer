@@ -46,7 +46,8 @@ import {
   type Lead,
   type SearchProgress,
 } from "@/lib/leads";
-import { cn } from "@/lib/utils";
+import { cn, formatBRL, prettyStatus } from "@/lib/utils";
+import { statusTextColors } from "@/lib_tsx/utils";
 
 export const Route = createFileRoute("/leads")({
   head: () => ({
@@ -159,7 +160,7 @@ function LeadsPage() {
     () => leads?.map((lead) => ({ lead, insight: getInsight(lead) })) ?? null,
     [leads],
   );
-  
+
   const isBtnDisabled = isClient ? !rows?.length : true;
 
   const stats = useMemo(() => {
@@ -529,9 +530,7 @@ function LeadsPage() {
                             onClick={() => setDetail(row)}
                             className="text-left"
                           >
-                            <span
-                              className={`style text-sm font-medium group-hover:underline ${row.lead.in_prospecting ? "text-blue-400" : ""}`}
-                            >
+                            <span className="style text-sm font-medium group-hover:underline">
                               {row.lead.name}
                             </span>
                             <span className="block text-xs text-muted-foreground">
@@ -561,7 +560,7 @@ function LeadsPage() {
                           <OpportunityBadge label={row.insight.label} score={row.insight.score} />
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status="Novo" />
+                          <StatusBadge status={row.lead.status || ""} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -694,10 +693,32 @@ function OpportunityBadge({ label, score }: { label: string; score: number }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+const statusColors: Record<string, string> = {
+  NEW: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+  CONTACTED:
+    "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800",
+  REPLIED:
+    "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
+  MEETING:
+    "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800",
+  PROPOSAL:
+    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
+  CUSTOMER:
+    "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
+  LOST: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+};
+
+export function StatusBadge({ status }: { status?: string }) {
+  const colorClass =
+    status && statusColors[status]
+      ? statusColors[status]
+      : "bg-secondary text-secondary-foreground border-border";
+
   return (
-    <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-      {status}
+    <span
+      className={`inline-flex font-medium rounded-full border px-2 py-0.5 text-[11px] ${colorClass}`}
+    >
+      {prettyStatus(status)}
     </span>
   );
 }
@@ -755,11 +776,19 @@ function LeadDetails({ row }: { row: Row }) {
     ["Página de orçamento", insight.presence.quotePage],
   ];
 
+  const textColor =
+    lead.status && statusTextColors[lead.status]
+      ? statusTextColors[lead.status]
+      : "text-foreground";
+
   return (
     <div className="space-y-6 pt-2">
       <div>
-        <p className={`text-lg font-semibold tracking-tight ${row.lead.in_prospecting ? "text-blue-400" : ""}`}
-        >{lead.name}</p>
+        <p
+          className={`text-lg font-semibold tracking-tight ${textColor}`}
+        >
+          {lead.name}
+        </p>
         <p className="text-xs text-muted-foreground">{lead.address || "Endereço não informado"}</p>
       </div>
 
@@ -796,11 +825,11 @@ function LeadDetails({ row }: { row: Row }) {
         <DetailRow label="Site" value={lead.website || "—"} />
         <DetailRow
           label="Proposta"
-          value={lead.proposal_value != null ? `R$ ${lead.proposal_value.toFixed(2)}` : "—"}
+          value={lead.proposal_value != null ? formatBRL(lead.proposal_value.toString()) : "—"}
         />
         <DetailRow
           label="Negócio fechado"
-          value={lead.deal_value != null ? `R$ ${lead.deal_value.toFixed(2)}` : "—"}
+          value={lead.deal_value != null ? formatBRL(lead.deal_value.toString()) : "—"}
         />
       </div>
 

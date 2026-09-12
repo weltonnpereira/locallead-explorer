@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import {
   CalendarCheck,
   MessageSquare,
@@ -10,6 +9,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { AppShell, MetricCard, PageSection } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchDashboard, type DashboardData } from "@/lib/leads";
+import { formatBRL } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -88,11 +89,17 @@ export function Dashboard() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {(data?.metrics ?? []).map((metric) => {
           const Icon = Users;
+
+          let displayValue = metric.value;
+          if (metric.label === "Valor gerado") {
+            displayValue = formatBRL(metric.value.toString());
+          }
+
           return (
             <MetricCard
               key={metric.label}
               label={metric.label}
-              value={metric.value}
+              value={displayValue}
               hint={metric.hint}
               icon={<Icon className="size-4" />}
             />

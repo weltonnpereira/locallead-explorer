@@ -1,9 +1,11 @@
 from datetime import datetime
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database.config import get_db
+from database import config as database_config
 from database.models import Campaign, CampaignStatus, Lead, LeadStatus
 from schemas.campaign import (
     CampaignCreateRequest,
@@ -37,7 +39,19 @@ def campaign_response(campaign: Campaign) -> CampaignResponse:
 
 
 @router.get("/dashboard", dependencies=[Depends(read_rate_limit)])
-def dashboard(db: Session = Depends(get_db)):
+async def dashboard(db: Session = Depends(get_db)):
+    cache_key = "dashboard:v1"
+
+    redis = database_config.redis_client
+
+    if redis:
+        try:
+            cached_dashboard = await redis.get(cache_key)
+            if cached_dashboard:
+                return json.loads(cached_dashboard)
+        except Exception:
+            redis = None
+
     leads = db.query(Lead).all()
     customers = [lead for lead in leads if lead.status == LeadStatus.CUSTOMER]
     funnel = [
@@ -72,7 +86,16 @@ def dashboard(db: Session = Depends(get_db)):
             "conversion": f"{(customer_count / len(group) * 100) if group else 0:.1f}%",
         })
     campaigns = [campaign_response(campaign).model_dump(mode="json") for campaign in db.query(Campaign).order_by(Campaign.created_at.desc()).limit(10).all()]
-    return {"metrics": metrics, "funnel": funnel, "niches": niches, "campaigns": campaigns}
+
+    result = {"metrics": metrics, "funnel": funnel, "niches": niches, "campaigns": campaigns}
+
+    if redis:
+        try:
+            await redis.set(cache_key, json.dumps(result), ex=300)
+        except Exception:
+            pass
+
+    return result
 
 
 @router.get("/campaigns", response_model=list[CampaignResponse], dependencies=[Depends(read_rate_limit)])

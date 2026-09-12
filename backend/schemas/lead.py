@@ -68,8 +68,8 @@ class LeadResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     in_prospecting: bool = False
-    proposal_value: float | None = None
-    deal_value: float | None = None
+    proposal_value: int | None = None
+    deal_value: int | None = None
     deal_closed_at: datetime | None = None
     factors: list[OpportunityFactor] = []
     

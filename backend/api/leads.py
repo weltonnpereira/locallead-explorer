@@ -247,7 +247,7 @@ async def update_status(lead_id: int, payload: StatusUpdateRequest, db: Session 
 
     if payload.status == "PROPOSAL" and payload.proposal_value is not None:
         lead.proposal_value = payload.proposal_value
-    if payload.status == "DEAL" and payload.deal_value is not None:
+    if payload.status == "CUSTOMER" and payload.deal_value is not None:
         lead.deal_value = payload.deal_value
         lead.deal_closed_at = datetime.utcnow()
         
@@ -267,6 +267,6 @@ async def update_notes(lead_id: int, payload: NotesUpdateRequest, db: Session = 
     db.commit()
     db.refresh(lead)
     
-    await clear_leads_cache()  # Clear the cache after updating notes
+    await clear_leads_cache()
     
     return lead
