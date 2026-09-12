@@ -458,7 +458,7 @@ function LeadsPage() {
             size="sm"
             className="h-8 gap-1.5 text-xs"
             disabled={selected.size === 0}
-            onClick={handleAddToProspecting}
+            onClick={openProspectingDialog}
           >
             <Target className="size-3.5" />
             Adicionar à prospecção
