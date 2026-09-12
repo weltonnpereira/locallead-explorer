@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { fetchCampaigns, type Campaign } from "@/lib/leads";
+import { formatBRL } from "@/lib/utils";
 
 export const Route = createFileRoute("/campanhas")({
   head: () => ({
@@ -80,7 +81,9 @@ function CampanhasPage() {
             </dl>
             <p className="mt-4 border-t border-border pt-3 text-sm">
               <span className="text-muted-foreground">Valor gerado: </span>
-              <span className="font-semibold">R$ {campaign.generated_value.toFixed(2)}</span>
+              <span className="font-semibold">
+                {formatBRL(campaign.generated_value.toString())}
+              </span>
             </p>
           </article>
         ))}
