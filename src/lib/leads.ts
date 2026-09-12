@@ -174,6 +174,29 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
   return (await response.json()) as Campaign[];
 }
 
+export async function createCampaign(input: {
+  name: string;
+  category: string;
+  city: string;
+}): Promise<Campaign> {
+  const response = await fetch(`${API_ROOT}/campaigns`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as Campaign;
+}
+
+export async function addLeadsToCampaign(campaignId: number, leadIds: number[]): Promise<void> {
+  const response = await fetch(`${API_ROOT}/campaigns/${campaignId}/leads`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(leadIds),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
 export async function updateLeadStatus(
   id: number,
   status: LeadStatus,
