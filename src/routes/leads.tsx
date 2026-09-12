@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Building2,
@@ -19,6 +18,7 @@ import {
   Target,
   X,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, EmptyState, MetricCard } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getInsight, suggestionFor, type LeadInsight } from "@/lib/lead-insights";
-import { fetchLeads, whatsappLink, type Lead } from "@/lib/leads";
-import { cn } from "@/lib/utils";
+import {
+  addLeadsToProspecting,
+  fetchAllLeads,
+  fetchLeads,
+  fetchLeadsBySearch,
+  whatsappLink,
+  type Lead,
+  type SearchProgress,
+} from "@/lib/leads";
+import { cn, formatBRL, prettyStatus } from "@/lib/utils";
+import { statusTextColors } from "@/lib_tsx/utils";
 
 export const Route = createFileRoute("/leads")({
   head: () => ({
@@ -65,14 +74,7 @@ const PAGE_SIZE = 10;
 const STORAGE_KEY = "leadradar:last-search";
 
 type FilterId =
-  | "all"
-  | "high"
-  | "no-site"
-  | "whatsapp"
-  | "site"
-  | "no-form"
-  | "high-rating"
-  | "low-rating";
+  "all" | "high" | "no-site" | "whatsapp" | "site" | "no-form" | "high-rating" | "low-rating";
 
 const FILTERS: { id: FilterId; label: string }[] = [
   { id: "all", label: "Todos" },
@@ -118,11 +120,13 @@ function matches(row: Row, filter: FilterId) {
 }
 
 function LeadsPage() {
+  const [isClient, setIsClient] = useState(false);
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
   const [advanced, setAdvanced] = useState(false);
   const [minScore, setMinScore] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [searchProgress, setSearchProgress] = useState<SearchProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [filter, setFilter] = useState<FilterId>("all");
@@ -132,27 +136,32 @@ function LeadsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<Row | null>(null);
 
-  // Preserva a última pesquisa realizada (comportamento existente mantido).
+  // Preserva a última pesquisa realizada
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { category: string; city: string; leads: Lead[] };
-      if (Array.isArray(saved.leads)) {
-        setLeads(saved.leads);
-        setQuery({ category: saved.category ?? "", city: saved.city ?? "" });
-        setCategory(saved.category ?? "");
-        setCity(saved.city ?? "");
-      }
+      const saved = JSON.parse(raw) as { category?: string; city?: string };
+      setQuery({ category: saved.category ?? "", city: saved.city ?? "" });
+      setCategory(saved.category ?? "");
+      setCity(saved.city ?? "");
     } catch {
       /* ignora cache inválido */
     }
+    const searchId = Number(new URLSearchParams(window.location.search).get("search_id"));
+    const loadLeads =
+      Number.isInteger(searchId) && searchId > 0 ? fetchLeadsBySearch(searchId) : fetchAllLeads();
+    void loadLeads.then(setLeads).catch(() => undefined);
+
+    setIsClient(true);
   }, []);
 
   const rows = useMemo<Row[] | null>(
     () => leads?.map((lead) => ({ lead, insight: getInsight(lead) })) ?? null,
     [leads],
   );
+
+  const isBtnDisabled = isClient ? !rows?.length : true;
 
   const stats = useMemo(() => {
     if (!rows?.length) return null;
@@ -183,18 +192,19 @@ function LeadsPage() {
     event.preventDefault();
     if (loading) return;
     setLoading(true);
+    setSearchProgress({ status: "queued", progress: 0, message: "Iniciando busca..." });
     setError(null);
     setLeads(null);
     setFilter("all");
     setPage(1);
     setSelected(new Set());
     try {
-      const result = await fetchLeads(category, city);
+      const result = await fetchLeads(category, city, setSearchProgress);
       setLeads(result);
       const next = { category: category.trim(), city: city.trim() };
       setQuery(next);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...next, leads: result }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       } catch {
         /* storage indisponível */
       }
@@ -206,6 +216,25 @@ function LeadsPage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleAddToProspecting() {
+    const ids = [...selected]
+      .map((key) => rows?.find((row) => rowKey(row) === key)?.lead.id)
+      .filter((id): id is number => id !== undefined);
+    if (!ids.length) return;
+    try {
+      await addLeadsToProspecting(ids);
+      setLeads(
+        (current) =>
+          current?.map((lead) =>
+            ids.includes(lead.id ?? -1) ? { ...lead, in_prospecting: true } : lead,
+          ) ?? null,
+      );
+      setSelected(new Set());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível adicionar à prospecção.");
     }
   }
 
@@ -273,14 +302,17 @@ function LeadsPage() {
   const allPageSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(rowKey(r)));
 
   return (
-    <AppShell title="Encontrar Leads" subtitle="Encontre empresas locais e identifique oportunidades comerciais.">
-      <form
-        onSubmit={handleSearch}
-        className="rounded-xl border border-border bg-card p-4 md:p-5"
-      >
+    <AppShell
+      title="Encontrar Leads"
+      subtitle="Encontre empresas locais e identifique oportunidades comerciais."
+    >
+      <form onSubmit={handleSearch} className="rounded-xl border border-border bg-card p-4 md:p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <div className="space-y-1.5">
-            <Label htmlFor="category" className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <Label
+              htmlFor="category"
+              className="text-[11px] uppercase tracking-wider text-muted-foreground"
+            >
               Categoria do negócio
             </Label>
             <div className="relative">
@@ -295,7 +327,10 @@ function LeadsPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="city" className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <Label
+              htmlFor="city"
+              className="text-[11px] uppercase tracking-wider text-muted-foreground"
+            >
               Cidade / Região
             </Label>
             <div className="relative">
@@ -311,7 +346,11 @@ function LeadsPage() {
           </div>
           <div className="flex items-end">
             <Button type="submit" disabled={loading} className="h-11 w-full gap-2 md:w-auto">
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+              {loading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Search className="size-4" />
+              )}
               {loading ? "Buscando..." : "Buscar Leads"}
             </Button>
           </div>
@@ -386,7 +425,7 @@ function LeadsPage() {
               type="button"
               size="sm"
               variant={filter === item.id ? "default" : "outline"}
-              disabled={!rows?.length}
+              disabled={isBtnDisabled}
               onClick={() => {
                 setFilter(item.id);
                 setPage(1);
@@ -407,6 +446,7 @@ function LeadsPage() {
             size="sm"
             className="h-8 gap-1.5 text-xs"
             disabled={selected.size === 0}
+            onClick={handleAddToProspecting}
           >
             <Target className="size-3.5" />
             Adicionar à prospecção
@@ -427,7 +467,7 @@ function LeadsPage() {
 
       <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
         {loading ? (
-          <TableSkeleton />
+          <TableSkeleton progress={searchProgress} />
         ) : !visible ? (
           <EmptyState
             icon={<Search className="size-4" />}
@@ -490,7 +530,7 @@ function LeadsPage() {
                             onClick={() => setDetail(row)}
                             className="text-left"
                           >
-                            <span className="block text-sm font-medium group-hover:underline">
+                            <span className="style text-sm font-medium group-hover:underline">
                               {row.lead.name}
                             </span>
                             <span className="block text-xs text-muted-foreground">
@@ -520,7 +560,7 @@ function LeadsPage() {
                           <OpportunityBadge label={row.insight.label} score={row.insight.score} />
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status="Novo" />
+                          <StatusBadge status={row.lead.status || ""} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -624,7 +664,9 @@ function LeadsPage() {
 }
 
 function rowKey(row: Row) {
-  return `${row.lead.name}-${row.lead.address}`;
+  return row.lead.id !== undefined
+    ? String(row.lead.id)
+    : row.lead.google_maps_url || `${row.lead.name}-${row.lead.address}`;
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -651,10 +693,32 @@ function OpportunityBadge({ label, score }: { label: string; score: number }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+const statusColors: Record<string, string> = {
+  NEW: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+  CONTACTED:
+    "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800",
+  REPLIED:
+    "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
+  MEETING:
+    "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800",
+  PROPOSAL:
+    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
+  CUSTOMER:
+    "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
+  LOST: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+};
+
+export function StatusBadge({ status }: { status?: string }) {
+  const colorClass =
+    status && statusColors[status]
+      ? statusColors[status]
+      : "bg-secondary text-secondary-foreground border-border";
+
   return (
-    <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-      {status}
+    <span
+      className={`inline-flex font-medium rounded-full border px-2 py-0.5 text-[11px] ${colorClass}`}
+    >
+      {prettyStatus(status)}
     </span>
   );
 }
@@ -712,10 +776,19 @@ function LeadDetails({ row }: { row: Row }) {
     ["Página de orçamento", insight.presence.quotePage],
   ];
 
+  const textColor =
+    lead.status && statusTextColors[lead.status]
+      ? statusTextColors[lead.status]
+      : "text-foreground";
+
   return (
     <div className="space-y-6 pt-2">
       <div>
-        <p className="text-lg font-semibold tracking-tight">{lead.name}</p>
+        <p
+          className={`text-lg font-semibold tracking-tight ${textColor}`}
+        >
+          {lead.name}
+        </p>
         <p className="text-xs text-muted-foreground">{lead.address || "Endereço não informado"}</p>
       </div>
 
@@ -750,6 +823,14 @@ function LeadDetails({ row }: { row: Row }) {
           value={`${lead.rating !== null ? lead.rating.toFixed(1) : "N/A"} · ${lead.reviews} avaliações`}
         />
         <DetailRow label="Site" value={lead.website || "—"} />
+        <DetailRow
+          label="Proposta"
+          value={lead.proposal_value != null ? formatBRL(lead.proposal_value.toString()) : "—"}
+        />
+        <DetailRow
+          label="Negócio fechado"
+          value={lead.deal_value != null ? formatBRL(lead.deal_value.toString()) : "—"}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -835,12 +916,19 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TableSkeleton() {
+function TableSkeleton({ progress }: { progress: SearchProgress | null }) {
   return (
     <div className="space-y-3 p-5" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        Coletando empresas, contatos e avaliações...
+        {progress?.message || "Coletando empresas, contatos e avaliações..."}
+        <span className="ml-auto tabular-nums">{progress?.progress ?? 0}%</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full bg-foreground transition-[width] duration-300"
+          style={{ width: `${progress?.progress ?? 0}%` }}
+        />
       </div>
       {Array.from({ length: 6 }).map((_, index) => (
         <div key={index} className="grid grid-cols-6 gap-3">
