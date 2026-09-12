@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, EmptyState, MetricCard } from "@/components/layout/app-shell";
+import { AddToProspectingDialog } from "@/components/leads/add-to-prospecting-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -134,6 +135,8 @@ function LeadsPage() {
   const [query, setQuery] = useState({ category: "", city: "" });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogIds, setDialogIds] = useState<number[]>([]);
   const [detail, setDetail] = useState<Row | null>(null);
 
   // Preserva a última pesquisa realizada
@@ -219,23 +222,32 @@ function LeadsPage() {
     }
   }
 
-  async function handleAddToProspecting() {
-    const ids = [...selected]
+  function selectedLeadIds() {
+    return [...selected]
       .map((key) => rows?.find((row) => rowKey(row) === key)?.lead.id)
       .filter((id): id is number => id !== undefined);
+  }
+
+  function openProspectingDialog() {
+    const ids = selectedLeadIds();
     if (!ids.length) return;
+    setDialogIds(ids);
+    setDialogOpen(true);
+  }
+
+  async function handleProspectingSuccess(ids: number[]) {
     try {
       await addLeadsToProspecting(ids);
-      setLeads(
-        (current) =>
-          current?.map((lead) =>
-            ids.includes(lead.id ?? -1) ? { ...lead, in_prospecting: true } : lead,
-          ) ?? null,
-      );
-      setSelected(new Set());
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Não foi possível adicionar à prospecção.");
+    } catch {
+      /* o lead já foi vinculado à campanha */
     }
+    setLeads(
+      (current) =>
+        current?.map((lead) =>
+          ids.includes(lead.id ?? -1) ? { ...lead, in_prospecting: true } : lead,
+        ) ?? null,
+    );
+    setSelected(new Set());
   }
 
   async function handleExport() {
