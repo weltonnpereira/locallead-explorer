@@ -40,9 +40,9 @@ async def _analyze_lead_with_limit(data: dict, sem: asyncio.Semaphore, db: Sessi
                 "site_status": None,
                 "keywords_found": [],
             }
-        score, opportunity = calculate_opportunity_score(data, analysis)
+        score, factors = calculate_opportunity_score(data, analysis)
         data["opportunity_score"] = score
-        data["opportunity_reason"] = opportunity
+        data["opportunity_factors"] = factors
         return data
 
 async def _run_search(search_id: int, term: str, city: str) -> None:
@@ -54,9 +54,11 @@ async def _run_search(search_id: int, term: str, city: str) -> None:
             for lead in db.query(Lead).filter(Lead.google_maps_url.is_not(None)).all()
             if canonical_maps_url(lead.google_maps_url)
         }
-        await publish(search_id, status="running", progress=15, message="Carregando resultados do Google Maps...")
-        raw_leads = await scrape_google_maps(term, city, known_leads=known_leads)
+        await publish(search_id, status="running", progress=5, message="Carregando resultados do Google Maps...")
+
+        raw_leads = await scrape_google_maps(term, city, search_id=search_id, known_leads=known_leads)
         search = db.query(Search).filter(Search.id == search_id).first()
+
         if not search:
             raise RuntimeError("Busca não encontrada")
         search.total_found = len(raw_leads)
@@ -173,6 +175,7 @@ async def list_leads(
         if identity in seen_leads:
             continue
         seen_leads.add(identity)
+
         leads_list_json.append(LeadResponse(
             id=lead.id,
             name=lead.name,
@@ -183,7 +186,6 @@ async def list_leads(
             google_rating=lead.google_rating,
             google_reviews=lead.google_reviews,
             opportunity_score=lead.score,
-            opportunity_reason=lead.opportunity,
             status=lead.status,
             notes=lead.notes,
             created_at=lead.created_at,
@@ -192,6 +194,7 @@ async def list_leads(
             proposal_value=lead.proposal_value,
             deal_value=lead.deal_value,
             deal_closed_at=lead.deal_closed_at,
+            factors=lead.opportunity_factors or [],
         ).model_dump(mode="json"))
     
     if redis:
@@ -231,8 +234,6 @@ def get_lead(lead_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Adicione o lead à prospecção antes de alterar o status.")
     return lead
 
-# no futuro por isso pode ser atualizado a todo momento podemos simplesmente adicionar em um cache
-# primeiro e depois trabalhar em escrever na tabela permanentemente
 @router.patch("/leads/{lead_id}/status", dependencies=[Depends(write_rate_limit)])
 async def update_status(lead_id: int, payload: StatusUpdateRequest, db: Session = Depends(get_db)):
     """Move o lead pelo Kanban (NEW, CONTACTED, etc)"""
@@ -243,6 +244,12 @@ async def update_status(lead_id: int, payload: StatusUpdateRequest, db: Session 
     lead.status = payload.status
     if payload.status != LeadStatus.NEW:
         lead.last_contact_at = datetime.utcnow()
+
+    if payload.status == "PROPOSAL" and payload.proposal_value is not None:
+        lead.proposal_value = payload.proposal_value
+    if payload.status == "DEAL" and payload.deal_value is not None:
+        lead.deal_value = payload.deal_value
+        lead.deal_closed_at = datetime.utcnow()
         
     db.commit()
     db.refresh(lead)

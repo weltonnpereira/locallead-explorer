@@ -1,5 +1,6 @@
 import enum
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table, Enum, Text, Boolean
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database.config import Base
@@ -37,7 +38,7 @@ class Search(Base):
     location = Column(String, nullable=False)
     total_found = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
-    # para comitar
+    
     leads = relationship('Lead', secondary=search_lead_association, back_populates='searches')
 
 
@@ -88,7 +89,7 @@ class Lead(Base):
     
     # Qualificação
     score = Column(Float)
-    opportunity = Column(Text) # Guardamos os motivos aqui
+    opportunity_factors = Column(JSONB, nullable=True) # Guardamos os fatores aqui, como JSON, eles são as oportunidades e os pontos atribuidos por ela 
     
     # CRM
     status = Column(Enum(LeadStatus), default=LeadStatus.NEW)

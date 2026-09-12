@@ -1,3 +1,8 @@
+export type OpportunityFactor = {
+  label?: string;
+  points?: number;
+};
+
 export type Lead = {
   id?: number;
   name: string;
@@ -8,12 +13,12 @@ export type Lead = {
   website: string | null;
   google_maps_url?: string | null;
   score?: number | null;
-  opportunity?: string | null;
   status?: LeadStatus;
   in_prospecting?: boolean;
   proposal_value?: number | null;
   deal_value?: number | null;
   deal_closed_at?: string | null;
+  factors?: OpportunityFactor[];
 };
 
 export type LeadStatus =
@@ -95,7 +100,6 @@ function normalize(row: Record<string, unknown>): Lead {
       ) ?? 0,
     website: pick(row, ["website", "site", "url", "web"]) || null,
     score: toNumber(row["score"] ?? row["opportunity_score"]),
-    opportunity: pick(row, ["opportunity", "opportunity_reason"]) || null,
     ...(typeof row["status"] === "string" ? { status: row["status"] as LeadStatus } : {}),
     ...(typeof row["in_prospecting"] === "boolean"
       ? { in_prospecting: row["in_prospecting"] }
@@ -104,6 +108,9 @@ function normalize(row: Record<string, unknown>): Lead {
     ...(typeof row["deal_value"] === "number" ? { deal_value: row["deal_value"] } : {}),
     ...(typeof row["deal_closed_at"] === "string" ? { deal_closed_at: row["deal_closed_at"] } : {}),
     ...(id !== null ? { id } : {}),
+    ...(Array.isArray(row["factors"])
+      ? { factors: row["factors"] as OpportunityFactor[] }
+      : { factors: [] }),
   };
 }
 
@@ -167,12 +174,25 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
   return (await response.json()) as Campaign[];
 }
 
-export async function updateLeadStatus(id: number, status: LeadStatus): Promise<void> {
+export async function updateLeadStatus(
+  id: number,
+  status: LeadStatus,
+  extraValue?: string,
+): Promise<void> {
+  const payload: Record<string, unknown> = { status };
+
+  if (status === "PROPOSAL" && extraValue) {
+    payload["proposal_value"] = extraValue;
+  } else if (status === "CUSTOMER" && extraValue) {
+    payload["deal_value"] = extraValue;
+  }
+
   const response = await fetch(`${API_ROOT}/leads/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(payload),
   });
+
   if (!response.ok) throw new Error(await readError(response));
 }
 

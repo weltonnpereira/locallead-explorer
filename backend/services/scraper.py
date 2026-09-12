@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from playwright.async_api import async_playwright
 from services.sanitization import sanitize_business_name
+from services.search_progress import publish
 
 
 def canonical_maps_url(url: str | None) -> str | None:
@@ -174,7 +175,7 @@ async def get_address(active_panel) -> str | None:
 
     return None
 
-async def _load_all_results(page, max_scrolls: int = 120) -> None:
+async def _load_all_results(page, search_id: int, max_scrolls: int = 120) -> None:
     """Rola o feed até a altura e a quantidade de cards permanecerem estáveis."""
     previous_height = -1
     previous_count = -1
@@ -201,6 +202,14 @@ async def _load_all_results(page, max_scrolls: int = 120) -> None:
         if not metrics:
             return
 
+        word = " empresa encontrada..." if int(metrics['count']) == 1 else " empresas encontradas..."
+        await publish(
+            search_id,
+            status="running",
+            progress=15,
+            message=f"{metrics['count']} {word}"
+        )
+
         at_bottom = (
             metrics["top"] + metrics["viewport"]
             >= metrics["height"] - 5
@@ -224,6 +233,7 @@ async def _load_all_results(page, max_scrolls: int = 120) -> None:
 async def scrape_google_maps(
     search_terms: str,
     city: str,
+    search_id: int,
     target_count: int | None = None,
     known_leads: Dict[str, datetime | None] | None = None,
     refresh_hours: int = 24,
@@ -250,18 +260,30 @@ async def scrape_google_maps(
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             
-            await _load_all_results(page)
+            await _load_all_results(page, search_id)
                 
-            elements = await page.query_selector_all('div[role="article"]')
-            
+            elements = await page.query_selector_all('div[role="article"]')    
             elements_to_process = elements if target_count is None else elements[:target_count]
-            for el in elements_to_process:
+            total_elements = len(elements_to_process)
+
+            for idx, el in enumerate(elements_to_process, start=1):
                 try:
                     title_el = await el.query_selector('.qBF1Pd')
                     title = sanitize_business_name(await title_el.inner_text()) if title_el else None
                     
                     if not title:
                         continue
+
+                    async def report_lead_found():
+                        current_progress = 15 + int((idx / max(total_elements, 1)) * 4)
+                        word = "lead salvo" if len(leads) == 1 else "leads salvos"
+                        await publish(
+                            search_id,
+                            status="running",
+                            progress=current_progress,
+                            message=f"Coletando dados. {len(leads)} {word}.",
+                            extracted_count=len(leads)
+                        ) 
 
                     card_url = await get_card_maps_url(el)
                     canonical_card_url = canonical_maps_url(card_url)
@@ -292,9 +314,11 @@ async def scrape_google_maps(
                             seen_identities.add(card_identity)
                         if canonical_card_url:
                             seen_urls.add(canonical_card_url)
+
+                        await report_lead_found()
                         continue
                     
-                    print(f"\n========== PROCESSANDO: {title} ==========")
+                    # print(f"\n========== PROCESSANDO: {title} ==========")
 
                     await el.scroll_into_view_if_needed()
                     # Aguarda um tempinho rápido antes de clicar para estabilizar o scroll
@@ -328,7 +352,6 @@ async def scrape_google_maps(
                         pass
 
                     maps_url = page.url
-                    # para comitar
                     canonical_maps = canonical_maps_url(maps_url)
                     if canonical_maps in seen_urls:
                         continue
@@ -336,8 +359,8 @@ async def scrape_google_maps(
                     seen_urls.add(canonical_maps or maps_url)
                     
                     active_panel = page.locator('div[role="main"]').last
-                    opened_title = await active_panel.locator('h1').first.inner_text()
-                    print(f"[DEBUG] H1 aberto: {opened_title}")
+                    # opened_title = await active_panel.locator('h1').first.inner_text()
+                    # print(f"[DEBUG] H1 aberto: {opened_title}")
                     
                     phone = None
                     website = None
@@ -362,14 +385,14 @@ async def scrape_google_maps(
                     if await site_links.count() > 0:
                         website = await site_links.first.get_attribute('href')
                         
-                    print(
-                        f"[RESULT] {title} | "
-                        f"rating={rating} | "
-                        f"reviews={reviews} | "
-                        f"phone={phone} | "
-                        f"address={address} | "
-                        f"website={website}"
-                    )
+                    # print(
+                    #     f"[RESULT] {title} | "
+                    #     f"rating={rating} | "
+                    #     f"reviews={reviews} | "
+                    #     f"phone={phone} | "
+                    #     f"address={address} | "
+                    #     f"website={website}"
+                    # )
             
                     leads.append({
                         "name": title,
@@ -382,6 +405,8 @@ async def scrape_google_maps(
                         "google_maps_url": maps_url,
                         "website": website
                     })
+
+                    await report_lead_found()
                 except Exception as e:
                     print(f"Erro ao extrair {title}: {e}")
                     continue

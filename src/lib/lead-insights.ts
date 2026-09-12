@@ -10,7 +10,7 @@ export type DigitalPresence = {
   quotePage: boolean;
 };
 
-export type ScoreFactor = { points: number; label: string };
+export type ScoreFactor = { label: string; points: number };
 
 export type LeadInsight = {
   score: number;
@@ -22,30 +22,36 @@ export type LeadInsight = {
 
 export function getInsight(lead: Lead): LeadInsight {
   const site = Boolean(lead.website);
-  const reasons = (lead.opportunity || "")
-    .split("\n")
-    .map((reason) => reason.trim())
-    .filter(Boolean);
-  const whatsapp = reasons.includes("WhatsApp confirmado") || /whatsapp/i.test(lead.website || "");
+
+  const factors: ScoreFactor[] = (lead.factors || [])
+    .filter((f) => f.label != null && f.points != null)
+    .map((f) => ({
+      label: String(f.label),
+      points: Number(f.points),
+    }));
+
+  const opportunityLabels = factors.map((f) => f.label);
+
+  const whatsapp =
+    opportunityLabels.includes("WhatsApp confirmado") || /whatsapp/i.test(lead.website || "");
+
   const instagram =
-    /instagram/i.test(lead.website || "") || reasons.some((reason) => /instagram/i.test(reason));
-  const form = !reasons.includes("Sem formulário de contato");
+    /instagram/i.test(lead.website || "") ||
+    opportunityLabels.some((label) => /instagram/i.test(label));
+
+  const form = !opportunityLabels.includes("Sem formulário de contato");
   const https = site && !lead.website?.startsWith("http://");
   const responsive = false;
-  const quotePage = !reasons.includes("Sem CTA de orçamento");
+  const quotePage = !opportunityLabels.includes("Sem CTA de orçamento");
 
-  const factors: ScoreFactor[] = reasons.map((reason) => ({ points: 0, label: reason }));
   const score = lead.score ?? 0;
-
-  const opportunities = reasons.length ? reasons : ["Oportunidade padrão"];
-
-  const label = reasons[0] || "Oportunidade padrão";
+  const label = factors[0]?.label || "Oportunidade padrão";
 
   return {
     score,
     factors,
     presence: { site, whatsapp, instagram, form, https, responsive, quotePage },
-    opportunities,
+    opportunities: opportunityLabels.length ? opportunityLabels : ["Oportunidade padrão"],
     label,
   };
 }

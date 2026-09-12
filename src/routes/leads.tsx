@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Building2,
@@ -19,6 +18,7 @@ import {
   Target,
   X,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, EmptyState, MetricCard } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -42,9 +42,6 @@ import {
   fetchAllLeads,
   fetchLeads,
   fetchLeadsBySearch,
-  updateLeadDeal,
-  updateLeadProposal,
-  updateLeadStatus,
   whatsappLink,
   type Lead,
   type SearchProgress,
@@ -122,6 +119,7 @@ function matches(row: Row, filter: FilterId) {
 }
 
 function LeadsPage() {
+  const [isClient, setIsClient] = useState(false);
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
   const [advanced, setAdvanced] = useState(false);
@@ -137,7 +135,7 @@ function LeadsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<Row | null>(null);
 
-  // Preserva a última pesquisa realizada (comportamento existente mantido).
+  // Preserva a última pesquisa realizada
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -153,12 +151,16 @@ function LeadsPage() {
     const loadLeads =
       Number.isInteger(searchId) && searchId > 0 ? fetchLeadsBySearch(searchId) : fetchAllLeads();
     void loadLeads.then(setLeads).catch(() => undefined);
+
+    setIsClient(true);
   }, []);
 
   const rows = useMemo<Row[] | null>(
     () => leads?.map((lead) => ({ lead, insight: getInsight(lead) })) ?? null,
     [leads],
   );
+  
+  const isBtnDisabled = isClient ? !rows?.length : true;
 
   const stats = useMemo(() => {
     if (!rows?.length) return null;
@@ -422,7 +424,7 @@ function LeadsPage() {
               type="button"
               size="sm"
               variant={filter === item.id ? "default" : "outline"}
-              disabled={!rows?.length}
+              disabled={isBtnDisabled}
               onClick={() => {
                 setFilter(item.id);
                 setPage(1);
@@ -527,7 +529,9 @@ function LeadsPage() {
                             onClick={() => setDetail(row)}
                             className="text-left"
                           >
-                            <span className="block text-sm font-medium group-hover:underline">
+                            <span
+                              className={`style text-sm font-medium group-hover:underline ${row.lead.in_prospecting ? "text-blue-400" : ""}`}
+                            >
                               {row.lead.name}
                             </span>
                             <span className="block text-xs text-muted-foreground">
@@ -739,7 +743,6 @@ function CopyButton({ value }: { value: string }) {
 
 function LeadDetails({ row }: { row: Row }) {
   const { lead, insight } = row;
-  const [status, setStatus] = useState(lead.status ?? "NEW");
   const link = whatsappLink(lead.phone);
   const message = suggestionFor(lead, insight);
   const presence: [string, boolean][] = [
@@ -755,7 +758,8 @@ function LeadDetails({ row }: { row: Row }) {
   return (
     <div className="space-y-6 pt-2">
       <div>
-        <p className="text-lg font-semibold tracking-tight">{lead.name}</p>
+        <p className={`text-lg font-semibold tracking-tight ${row.lead.in_prospecting ? "text-blue-400" : ""}`}
+        >{lead.name}</p>
         <p className="text-xs text-muted-foreground">{lead.address || "Endereço não informado"}</p>
       </div>
 
@@ -798,43 +802,6 @@ function LeadDetails({ row }: { row: Row }) {
           label="Negócio fechado"
           value={lead.deal_value != null ? `R$ ${lead.deal_value.toFixed(2)}` : "—"}
         />
-        <label className="flex items-center justify-between gap-4 border-b border-border pb-2 text-xs">
-          <span className="text-muted-foreground">Status</span>
-          <select
-            value={status}
-            className="rounded border border-border bg-background px-2 py-1 text-xs"
-            onChange={async (event) => {
-              const nextStatus = event.target.value as Lead["status"];
-              if (!nextStatus || !lead.id) return;
-              if (nextStatus === "PROPOSAL") {
-                const value = Number(window.prompt("Valor da proposta"));
-                if (!Number.isFinite(value) || value < 0) return;
-                await updateLeadProposal(lead.id, value);
-              } else if (nextStatus === "CUSTOMER") {
-                const value = Number(window.prompt("Valor fechado"));
-                if (!Number.isFinite(value) || value < 0) return;
-                await updateLeadDeal(lead.id, value);
-              } else {
-                await updateLeadStatus(lead.id, nextStatus);
-              }
-              setStatus(nextStatus);
-            }}
-          >
-            {[
-              ["NEW", "Novo"],
-              ["CONTACTED", "Contatado"],
-              ["REPLIED", "Respondeu"],
-              ["MEETING", "Reunião"],
-              ["PROPOSAL", "Proposta"],
-              ["CUSTOMER", "Cliente"],
-              ["LOST", "Perdido"],
-            ].map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       <div className="flex flex-wrap gap-2">

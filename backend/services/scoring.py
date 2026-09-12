@@ -3,58 +3,58 @@ from typing import Dict, Any, Tuple
 def calculate_opportunity_score(
     lead_data: Dict[str, Any],
     analysis: Dict[str, Any]
-) -> Tuple[float, str]:
+) -> Tuple[float, str, list[dict[str, Any]]]:
 
     score = 0.0
     reasons = []
-    
-    # site
+    factors = []
+
+    def add_factor(label: str, points: float):
+        nonlocal score
+        score += points
+        reasons.append(label)
+        factors.append({
+            "label": label,
+            "points": points
+        })
 
     if not analysis.get("has_website"):
-        score += 35
-        reasons.append("Sem site")
-
+        add_factor("Sem site", 50)
     else:
         if not analysis.get("is_custom_domain"):
-            score += 10
-            reasons.append("Presença digital em domínio de terceiros")
+            add_factor("Presença digital em domínio de terceiros", 15)
 
         if not analysis.get("has_whatsapp"):
-            score += 10
-            reasons.append("Site sem WhatsApp")
+            add_factor("Site sem WhatsApp", 15)
 
         if not analysis.get("has_form"):
-            score += 10
-            reasons.append("Sem formulário de contato")
+            add_factor("Sem formulário de contato", 15)
 
         if not analysis.get("has_budget_cta"):
-            score += 10
-            reasons.append("Sem CTA de orçamento")
-            
-    # google
-    reviews = lead_data.get("google_reviews") or lead_data.get("reviews") or 0
+            add_factor("Sem CTA de orçamento", 15)
+
+    reviews = (
+        lead_data.get("google_reviews")
+        or lead_data.get("reviews")
+        or 0
+    )
 
     if reviews >= 100:
-        score += 10
-        reasons.append("Muitas avaliações")
-
+        add_factor("Muitas avaliações", 15)
     elif reviews >= 30:
-        score += 5
-        reasons.append("Boa quantidade de avaliações")
+        add_factor("Boa quantidade de avaliações", 10)
 
-    rating = lead_data.get("google_rating") or lead_data.get("rating") or 0
+    rating = (
+        lead_data.get("google_rating")
+        or lead_data.get("rating")
+        or 0
+    )
 
     if rating >= 4.5:
-        score += 10
-        reasons.append("Ótima reputação")
-
-    # contato
+        add_factor("Ótima reputação", 15)
 
     if analysis.get("has_whatsapp"):
-        score += 10
-        reasons.append("WhatsApp confirmado")
-
-    # reducao
+        add_factor("WhatsApp confirmado", 15)
 
     if (
         analysis.get("has_https")
@@ -62,19 +62,14 @@ def calculate_opportunity_score(
         and analysis.get("has_whatsapp")
         and analysis.get("has_budget_cta")
     ):
-        score -= 20
+        score -= 25
+
+        factors.append({
+            "label": "Presença digital bem estruturada",
+            "points": -25
+        })
         reasons.append("Presença digital bem estruturada")
 
-    # limit
+    final_score = max(0.0, min(100.0, score))
 
-    final_score = max(
-        0.0,
-        min(100.0, score)
-    )
-
-    opportunity = "\n".join(reasons)
-
-    if not opportunity:
-        opportunity = "Oportunidade padrão"
-
-    return final_score, opportunity
+    return final_score, factors

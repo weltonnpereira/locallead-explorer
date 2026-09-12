@@ -115,8 +115,8 @@ def save_scraped_leads(db: Session, scraped_leads: list, search: Search) -> dict
             existing.google_reviews = item.get("reviews") if item.get("reviews") is not None else existing.google_reviews
             if item.get("opportunity_score") is not None:
                 existing.score = item["opportunity_score"]
-            if item.get("opportunity_reason") is not None:
-                existing.opportunity = item["opportunity_reason"]
+            if item.get("opportunity_factors") is not None:
+                existing.opportunity_factors = item["opportunity_factors"]
             if not item.get("_skipped_refresh"):
                 existing.last_scraped_at = datetime.utcnow()
             if search not in existing.searches:
@@ -135,7 +135,7 @@ def save_scraped_leads(db: Session, scraped_leads: list, search: Search) -> dict
             website=item.get("website"),
             google_maps_url=item.get("google_maps_url"),
             score=item.get("opportunity_score"),
-            opportunity=item.get("opportunity_reason"),
+            opportunity_factors=item.get("opportunity_factors"),
             last_scraped_at=datetime.utcnow(),
         )
 
@@ -151,7 +151,6 @@ def save_scraped_leads(db: Session, scraped_leads: list, search: Search) -> dict
                 "google_reviews": stmt.excluded.google_reviews,
                 "website": stmt.excluded.website,
                 "score": stmt.excluded.score,
-                "opportunity": stmt.excluded.opportunity,
                 "last_scraped_at": stmt.excluded.last_scraped_at,
             }
         )
