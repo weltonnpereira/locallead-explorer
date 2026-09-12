@@ -671,6 +671,13 @@ function LeadsPage() {
           {detail && <LeadDetails row={detail} />}
         </SheetContent>
       </Sheet>
+
+      <AddToProspectingDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        leadIds={dialogIds}
+        onSuccess={(ids) => void handleProspectingSuccess(ids)}
+      />
     </AppShell>
   );
 }
