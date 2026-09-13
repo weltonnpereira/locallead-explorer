@@ -623,7 +623,10 @@ function LeadsPage() {
                   <div key={rowKey(row)} className="space-y-2 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <button type="button" onClick={() => setDetail(row)} className="text-left">
-                        <p className="text-sm font-medium">{row.lead.name}</p>
+                        <p className="inline-flex items-center gap-1.5 text-sm font-medium">
+                          {row.lead.name}
+                          <NoteIndicator notes={row.lead.notes} />
+                        </p>
                         <p className="text-xs text-muted-foreground">{row.lead.address || "—"}</p>
                       </button>
                       <ScoreBadge score={row.insight.score} />

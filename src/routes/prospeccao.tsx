@@ -3,6 +3,7 @@ import { Copy, Loader2, MapPin, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell, EmptyState } from "@/components/layout/app-shell";
+import { LeadNotes } from "@/components/leads/lead-notes";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +26,7 @@ import {
   type LeadStatus,
 } from "@/lib/leads";
 import { cn, formatBRL } from "@/lib/utils";
+import { NoteIndicator } from "./leads";
 
 export const Route = createFileRoute("/prospeccao")({
   head: () => ({ meta: [{ title: "Prospecção — LeadRadar" }] }),
@@ -191,7 +193,10 @@ function ProspeccaoPage() {
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium leading-tight">{lead.name}</p>
+                          <p className="inline-flex items-center gap-1.5 text-sm font-medium leading-tight">
+                            {lead.name}
+                            <NoteIndicator notes={lead.notes} />
+                          </p>
                           <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
                             {lead.score ?? 0}
                           </span>
@@ -305,14 +310,30 @@ function ProspeccaoPage() {
       <Sheet open={Boolean(detail)} onOpenChange={(open) => !open && setDetail(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetTitle className="sr-only">Detalhes do lead</SheetTitle>
-          {detail && <ProspectingLeadDetails lead={detail} />}
+          {detail && (
+            <ProspectingLeadDetails
+              lead={detail}
+              onNotesSaved={(notes) => {
+                setDetail((current) => (current ? { ...current, notes } : current));
+                setLeads((current) =>
+                  current.map((item) => (item.id === detail.id ? { ...item, notes } : item)),
+                );
+              }}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </AppShell>
   );
 }
 
-function ProspectingLeadDetails({ lead }: { lead: Lead }) {
+function ProspectingLeadDetails({
+  lead,
+  onNotesSaved,
+}: {
+  lead: Lead;
+  onNotesSaved?: (notes: string) => void;
+}) {
   const insight = getInsight(lead);
   const message = suggestionFor(lead, insight);
   const link = whatsappLink(lead.phone);
@@ -408,6 +429,8 @@ function ProspectingLeadDetails({ lead }: { lead: Lead }) {
           Copiar mensagem
         </Button>
       </div>
+
+      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
     </div>
   );
 }
