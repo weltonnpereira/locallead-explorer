@@ -956,6 +956,8 @@ function LeadDetails({
           Copiar mensagem
         </Button>
       </div>
+
+      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
     </div>
   );
 }
