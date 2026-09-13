@@ -542,8 +542,16 @@ function LeadsPage() {
                             onClick={() => setDetail(row)}
                             className="text-left"
                           >
-                            <span className="style text-sm font-medium group-hover:underline">
+                            <span className="style inline-flex items-center gap-1.5 text-sm font-medium group-hover:underline">
                               {row.lead.name}
+                              {row.lead.notes?.trim() && (
+                                <NotePen
+                                  className="size-3.5 shrink-0 text-muted-foreground"
+                                  aria-label="Possui anotação"
+                                >
+                                  <title>Possui anotação</title>
+                                </NotePen>
+                              )}
                             </span>
                             <span className="block text-xs text-muted-foreground">
                               {row.lead.address?.split(",")[0] || "Local não informado"}
@@ -668,7 +676,23 @@ function LeadsPage() {
       <Sheet open={Boolean(detail)} onOpenChange={(open) => !open && setDetail(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetTitle className="sr-only">Detalhes do lead</SheetTitle>
-          {detail && <LeadDetails row={detail} />}
+          {detail && (
+            <LeadDetails
+              row={detail}
+              onNotesSaved={(notes) => {
+                const id = detail.lead.id;
+                setDetail((current) =>
+                  current ? { ...current, lead: { ...current.lead, notes } } : current,
+                );
+                if (id !== undefined) {
+                  setLeads(
+                    (current) =>
+                      current?.map((lead) => (lead.id === id ? { ...lead, notes } : lead)) ?? null,
+                  );
+                }
+              }}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
