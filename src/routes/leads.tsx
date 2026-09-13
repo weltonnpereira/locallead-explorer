@@ -15,6 +15,7 @@ import {
   Search,
   SlidersHorizontal,
   Star,
+  StickyNote,
   Target,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, EmptyState, MetricCard } from "@/components/layout/app-shell";
 import { AddToProspectingDialog } from "@/components/leads/add-to-prospecting-dialog";
+import { LeadNotes } from "@/components/leads/lead-notes";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -542,8 +544,9 @@ function LeadsPage() {
                             onClick={() => setDetail(row)}
                             className="text-left"
                           >
-                            <span className="style text-sm font-medium group-hover:underline">
+                            <span className="style inline-flex items-center gap-1.5 text-sm font-medium group-hover:underline">
                               {row.lead.name}
+                              <NoteIndicator notes={row.lead.notes} />
                             </span>
                             <span className="block text-xs text-muted-foreground">
                               {row.lead.address?.split(",")[0] || "Local não informado"}
@@ -620,7 +623,10 @@ function LeadsPage() {
                   <div key={rowKey(row)} className="space-y-2 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <button type="button" onClick={() => setDetail(row)} className="text-left">
-                        <p className="text-sm font-medium">{row.lead.name}</p>
+                        <p className="inline-flex items-center gap-1.5 text-sm font-medium">
+                          {row.lead.name}
+                          <NoteIndicator notes={row.lead.notes} />
+                        </p>
                         <p className="text-xs text-muted-foreground">{row.lead.address || "—"}</p>
                       </button>
                       <ScoreBadge score={row.insight.score} />
@@ -668,7 +674,23 @@ function LeadsPage() {
       <Sheet open={Boolean(detail)} onOpenChange={(open) => !open && setDetail(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetTitle className="sr-only">Detalhes do lead</SheetTitle>
-          {detail && <LeadDetails row={detail} />}
+          {detail && (
+            <LeadDetails
+              row={detail}
+              onNotesSaved={(notes) => {
+                const id = detail.lead.id;
+                setDetail((current) =>
+                  current ? { ...current, lead: { ...current.lead, notes } } : current,
+                );
+                if (id !== undefined) {
+                  setLeads(
+                    (current) =>
+                      current?.map((lead) => (lead.id === id ? { ...lead, notes } : lead)) ?? null,
+                  );
+                }
+              }}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
@@ -679,6 +701,15 @@ function LeadsPage() {
         onSuccess={(ids) => void handleProspectingSuccess(ids)}
       />
     </AppShell>
+  );
+}
+
+export function NoteIndicator({ notes }: { notes?: string | null | undefined }) {
+  if (!notes?.trim()) return null;
+  return (
+    <span title="Possui anotação" className="inline-flex text-muted-foreground">
+      <StickyNote className="size-3.5" aria-label="Possui anotação" />
+    </span>
   );
 }
 
@@ -781,7 +812,13 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function LeadDetails({ row }: { row: Row }) {
+function LeadDetails({
+  row,
+  onNotesSaved,
+}: {
+  row: Row;
+  onNotesSaved?: (notes: string) => void;
+}) {
   const { lead, insight } = row;
   const link = whatsappLink(lead.phone);
   const message = suggestionFor(lead, insight);
@@ -922,6 +959,8 @@ function LeadDetails({ row }: { row: Row }) {
           Copiar mensagem
         </Button>
       </div>
+
+      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
     </div>
   );
 }

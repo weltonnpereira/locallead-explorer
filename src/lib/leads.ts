@@ -18,6 +18,7 @@ export type Lead = {
   proposal_value?: number | null;
   deal_value?: number | null;
   deal_closed_at?: string | null;
+  notes?: string | null;
   factors?: OpportunityFactor[];
 };
 
@@ -107,6 +108,7 @@ function normalize(row: Record<string, unknown>): Lead {
     ...(typeof row["proposal_value"] === "number" ? { proposal_value: row["proposal_value"] } : {}),
     ...(typeof row["deal_value"] === "number" ? { deal_value: row["deal_value"] } : {}),
     ...(typeof row["deal_closed_at"] === "string" ? { deal_closed_at: row["deal_closed_at"] } : {}),
+    notes: typeof row["notes"] === "string" ? row["notes"] : null,
     ...(id !== null ? { id } : {}),
     ...(Array.isArray(row["factors"])
       ? { factors: row["factors"] as OpportunityFactor[] }
@@ -216,6 +218,15 @@ export async function updateLeadStatus(
     body: JSON.stringify(payload),
   });
 
+  if (!response.ok) throw new Error(await readError(response));
+}
+
+export async function updateLeadNotes(id: number, notes: string): Promise<void> {
+  const response = await fetch(`${API_ROOT}/leads/${id}/notes`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ notes }),
+  });
   if (!response.ok) throw new Error(await readError(response));
 }
 
