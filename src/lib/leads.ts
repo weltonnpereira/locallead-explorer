@@ -18,6 +18,7 @@ export type Lead = {
   proposal_value?: number | null;
   deal_value?: number | null;
   deal_closed_at?: string | null;
+  notes?: string | null;
   factors?: OpportunityFactor[];
 };
 
