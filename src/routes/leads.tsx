@@ -15,6 +15,7 @@ import {
   Search,
   SlidersHorizontal,
   Star,
+  StickyNote,
   Target,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, EmptyState, MetricCard } from "@/components/layout/app-shell";
 import { AddToProspectingDialog } from "@/components/leads/add-to-prospecting-dialog";
+import { LeadNotes } from "@/components/leads/lead-notes";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -699,7 +701,7 @@ function LeadsPage() {
   );
 }
 
-export function NoteIndicator({ notes }: { notes?: string | null }) {
+export function NoteIndicator({ notes }: { notes?: string | null | undefined }) {
   if (!notes?.trim()) return null;
   return (
     <span title="Possui anotação" className="inline-flex text-muted-foreground">
@@ -807,7 +809,13 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function LeadDetails({ row }: { row: Row }) {
+function LeadDetails({
+  row,
+  onNotesSaved,
+}: {
+  row: Row;
+  onNotesSaved?: (notes: string) => void;
+}) {
   const { lead, insight } = row;
   const link = whatsappLink(lead.phone);
   const message = suggestionFor(lead, insight);
