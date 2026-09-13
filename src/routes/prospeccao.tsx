@@ -399,6 +399,8 @@ function ProspectingLeadDetails({
         </Button>
       </div>
 
+      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
+
       <div>
         <p className="text-sm font-medium">Oportunidades detectadas</p>
         <ul className="mt-2 space-y-2">
@@ -429,8 +431,6 @@ function ProspectingLeadDetails({
           Copiar mensagem
         </Button>
       </div>
-
-      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
     </div>
   );
 }

@@ -812,13 +812,7 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function LeadDetails({
-  row,
-  onNotesSaved,
-}: {
-  row: Row;
-  onNotesSaved?: (notes: string) => void;
-}) {
+function LeadDetails({ row, onNotesSaved }: { row: Row; onNotesSaved?: (notes: string) => void }) {
   const { lead, insight } = row;
   const link = whatsappLink(lead.phone);
   const message = suggestionFor(lead, insight);
@@ -840,11 +834,7 @@ function LeadDetails({
   return (
     <div className="space-y-6 pt-2">
       <div>
-        <p
-          className={`text-lg font-semibold tracking-tight ${textColor}`}
-        >
-          {lead.name}
-        </p>
+        <p className={`text-lg font-semibold tracking-tight ${textColor}`}>{lead.name}</p>
         <p className="text-xs text-muted-foreground">{lead.address || "Endereço não informado"}</p>
       </div>
 
@@ -910,6 +900,8 @@ function LeadDetails({
         </Button>
       </div>
 
+      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
+
       <div>
         <p className="text-sm font-medium">Presença digital</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
@@ -959,8 +951,6 @@ function LeadDetails({
           Copiar mensagem
         </Button>
       </div>
-
-      <LeadNotes lead={lead} {...(onNotesSaved ? { onSaved: onNotesSaved } : {})} />
     </div>
   );
 }
