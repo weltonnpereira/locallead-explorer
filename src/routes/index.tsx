@@ -240,7 +240,7 @@ export function Dashboard() {
                   <TableCell className="text-right tabular-nums">{campaign.contacted}</TableCell>
                   <TableCell className="text-right tabular-nums">{campaign.customers}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {campaign.generated_value}
+                    {formatBRL(campaign.generated_value.toString())}
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { History, Search } from "lucide-react";
 
-import { AppShell } from "@/components/layout/app-shell";
+import { AppShell, EmptyState } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { fetchSearchHistory, type SearchHistoryItem } from "@/lib/leads";
 
@@ -50,9 +50,9 @@ function PesquisasPage() {
         </p>
       )}
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando pesquisas...</p>
+        <EmptyState title="Carregando pesquisas..." description="" />
       ) : !searches.length ? (
-        <p className="text-sm text-muted-foreground">Nenhuma pesquisa realizada.</p>
+        <EmptyState title="Nenhuma pesquisa realizada." description="Faça uma busca no leads para visualizar seu histórico de pesquisas aqui." />
       ) : (
         <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {searches.map((item) => (
