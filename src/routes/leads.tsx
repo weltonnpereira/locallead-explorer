@@ -544,14 +544,7 @@ function LeadsPage() {
                           >
                             <span className="style inline-flex items-center gap-1.5 text-sm font-medium group-hover:underline">
                               {row.lead.name}
-                              {row.lead.notes?.trim() && (
-                                <NotePen
-                                  className="size-3.5 shrink-0 text-muted-foreground"
-                                  aria-label="Possui anotação"
-                                >
-                                  <title>Possui anotação</title>
-                                </NotePen>
-                              )}
+                              <NoteIndicator notes={row.lead.notes} />
                             </span>
                             <span className="block text-xs text-muted-foreground">
                               {row.lead.address?.split(",")[0] || "Local não informado"}
@@ -703,6 +696,15 @@ function LeadsPage() {
         onSuccess={(ids) => void handleProspectingSuccess(ids)}
       />
     </AppShell>
+  );
+}
+
+export function NoteIndicator({ notes }: { notes?: string | null }) {
+  if (!notes?.trim()) return null;
+  return (
+    <span title="Possui anotação" className="inline-flex text-muted-foreground">
+      <StickyNote className="size-3.5" aria-label="Possui anotação" />
+    </span>
   );
 }
 
