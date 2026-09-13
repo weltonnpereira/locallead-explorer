@@ -54,6 +54,14 @@ const ICONS: Record<string, LucideIcon> = {
   trophy: Trophy,
 };
 
+const scheduleData = [
+  { day: "Terça", morning: "09h–11h30", afternoon: "14h–17h", priority: "Alta" },
+  { day: "Quarta", morning: "09h–11h30", afternoon: "14h–17h", priority: "Alta" },
+  { day: "Quinta", morning: "09h–11h30", afternoon: "14h–17h", priority: "Alta" },
+  { day: "Segunda", morning: "—", afternoon: "14h–17h", priority: "Média" },
+  { day: "Sexta", morning: "09h–12h", afternoon: "—", priority: "Média" },
+];
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +129,46 @@ export function Dashboard() {
               <span className="w-14 shrink-0 text-right text-xs tabular-nums">{stage.value}</span>
             </div>
           ))}
+        </div>
+      </PageSection>
+
+      <PageSection title="Melhores horários para prospecção" description="">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Dia</TableHead>
+                <TableHead className="text-right">Manhã</TableHead>
+                <TableHead className="text-right">Tarde</TableHead>
+                <TableHead className="text-right">Prioridade</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scheduleData.map((row) => (
+                <TableRow key={row.day}>
+                  <TableCell className="font-medium">{row.day}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {row.morning}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {row.afternoon}
+                  </TableCell>
+
+                  <TableCell className="text-right">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        row.priority === "Alta"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                      }`}
+                    >
+                      {row.priority}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </PageSection>
 
