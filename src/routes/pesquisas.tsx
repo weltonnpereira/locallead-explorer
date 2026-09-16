@@ -9,12 +9,12 @@ import { fetchSearchHistory, type SearchHistoryItem } from "@/lib/leads";
 export const Route = createFileRoute("/pesquisas")({
   head: () => ({
     meta: [
-      { title: "Pesquisas recentes — LeadRadar" },
+      { title: "Pesquisas recentes | LeadRadar" },
       {
         name: "description",
         content: "Histórico das suas pesquisas de leads por nicho, cidade e data.",
       },
-      { property: "og:title", content: "Pesquisas recentes — LeadRadar" },
+      { property: "og:title", content: "Pesquisas recentes | LeadRadar" },
       {
         property: "og:description",
         content: "Reabra rapidamente qualquer pesquisa de leads já realizada.",

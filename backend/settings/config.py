@@ -41,7 +41,6 @@ load_dotenv()
 #Gere a migration:
 #alembic revision --autogenerate -m "add nome da tabela"
 # backend/migrations/versions/
-# backend/migrations/versions/
 # Aplique a alteração:
 # alembic upgrade head
 # alembic check

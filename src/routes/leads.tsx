@@ -55,13 +55,13 @@ import { statusTextColors } from "@/lib_tsx/utils";
 export const Route = createFileRoute("/leads")({
   head: () => ({
     meta: [
-      { title: "Encontrar Leads — LeadRadar" },
+      { title: "Encontrar Leads | LeadRadar" },
       {
         name: "description",
         content:
           "Encontre empresas locais por nicho e cidade, identifique oportunidades comerciais e priorize a prospecção.",
       },
-      { property: "og:title", content: "Encontrar Leads — LeadRadar" },
+      { property: "og:title", content: "Encontrar Leads | LeadRadar" },
       {
         property: "og:description",
         content: "Busque negócios locais, analise presença digital e priorize oportunidades.",
@@ -141,7 +141,6 @@ function LeadsPage() {
   const [dialogIds, setDialogIds] = useState<number[]>([]);
   const [detail, setDetail] = useState<Row | null>(null);
 
-  // Preserva a última pesquisa realizada
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);

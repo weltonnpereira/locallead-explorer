@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Copy, Loader2, MapPin, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Copy, Loader2, MapPin, MessageCircle } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 
 import { AppShell, EmptyState } from "@/components/layout/app-shell";
-import { LeadNotes } from "@/components/leads/lead-notes";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 import { getInsight, suggestionFor } from "@/lib/lead-insights";
 import {
@@ -25,11 +25,11 @@ import {
   type Lead,
   type LeadStatus,
 } from "@/lib/leads";
-import { cn, formatBRL } from "@/lib/utils";
-import { NoteIndicator } from "./leads";
+import { cn } from "@/lib/utils";
+import { LeadNotes } from "@/components/leads/lead-notes";
 
 export const Route = createFileRoute("/prospeccao")({
-  head: () => ({ meta: [{ title: "Prospecção — LeadRadar" }] }),
+  head: () => ({ meta: [{ title: "Prospecção | LeadRadar" }] }),
   component: ProspeccaoPage,
 });
 
@@ -43,6 +43,15 @@ const STAGES: { id: LeadStatus; label: string }[] = [
   { id: "LOST", label: "Perdido" },
 ];
 
+function formatBRL(value: string) {
+  const numeric = value.replace(/\D/g, "");
+  if (!numeric) return "";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(numeric) / 100);
+}
+
 type PendingMove = {
   leadId: number;
   leadName: string;
@@ -53,7 +62,6 @@ function ProspeccaoPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dragging, setDragging] = useState<number | null>(null);
   const [detail, setDetail] = useState<Lead | null>(null);
 
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
@@ -80,60 +88,55 @@ function ProspeccaoPage() {
     };
   }, []);
 
-  async function executeMove(leadId: number, status: LeadStatus, extraValue?: number) {
+  async function executeMove(leadId: number, status: LeadStatus, extraValue?: string) {
     const previous = leads;
 
     setLeads((current) =>
       current.map((lead) => {
         if (lead.id !== leadId) return lead;
-
-        if (extraValue) {
-          const extra =
-            status === "PROPOSAL"
-              ? { proposal_value: extraValue }
-              : status === "CUSTOMER"
-                ? { deal_value: extraValue }
-                : {};
-          return { ...lead, status, ...extra };
-        }
-
-        return { ...lead, status };
+        const extra =
+          status === "PROPOSAL"
+            ? { proposal_value: extraValue ? Number(extraValue.replace(/\D/g, "")) / 100 : null }
+            : status === "CUSTOMER"
+              ? { deal_value: extraValue ? Number(extraValue.replace(/\D/g, "")) / 100 : null }
+              : {};
+        return { ...lead, status, ...extra };
       }),
     );
 
     try {
-      await updateLeadStatus(leadId, status, extraValue);
+      await updateLeadStatus(leadId, status);
     } catch (cause) {
       setLeads(previous);
       setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o status.");
     }
   }
 
-  function moveTo(status: LeadStatus) {
-    if (dragging === null) return;
+  const onDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
 
-    const lead = leads.find((l) => l.id === dragging);
-    if (!lead) {
-      setDragging(null);
+    if (!destination) return;
+
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
-    if (status === "PROPOSAL" || status === "CUSTOMER") {
-      setPendingMove({ leadId: lead.id!, leadName: lead.name, status });
-    } else {
-      void executeMove(lead.id!, status);
-    }
+    const leadId = Number(draggableId);
+    const newStatus = destination.droppableId as LeadStatus;
+    const lead = leads.find((l) => l.id === leadId);
 
-    setDragging(null);
-  }
+    if (!lead) return;
+
+    if (newStatus === "PROPOSAL" || newStatus === "CUSTOMER") {
+      setPendingMove({ leadId, leadName: lead.name, status: newStatus });
+    } else {
+      void executeMove(leadId, newStatus);
+    }
+  };
 
   function confirmValue() {
     if (!pendingMove) return;
-
-    const num = valueInput.replace(/\D/g, "");
-    const valueInCents = parseInt(num || "0", 10);
-
-    void executeMove(pendingMove.leadId, pendingMove.status, valueInCents);
+    void executeMove(pendingMove.leadId, pendingMove.status, valueInput);
     setPendingMove(null);
     setValueInput("");
   }
@@ -162,101 +165,127 @@ function ProspeccaoPage() {
           description="Selecione leads na página Encontrar Leads para começar."
         />
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-3">
-          {STAGES.map((stage) => {
-            const list = leads.filter((lead) => (lead.status ?? "NEW") === stage.id);
-            return (
-              <div
-                key={stage.id}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => void moveTo(stage.id)}
-                className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-card/60 p-3"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {stage.label}
-                  </p>
-                  <span className="text-xs tabular-nums text-muted-foreground">{list.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {list.map((lead) => {
-                    const link = whatsappLink(lead.phone);
-                    return (
-                      <article
-                        key={lead.id}
-                        draggable
-                        onDragStart={() => setDragging(lead.id ?? null)}
-                        onDragEnd={() => setDragging(null)}
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-3 overflow-x-auto pb-3">
+            {STAGES.map((stage) => {
+              const list = leads.filter((lead) => (lead.status ?? "NEW") === stage.id);
+              return (
+                <div
+                  key={stage.id}
+                  className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-card/60 p-3"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      {stage.label}
+                    </p>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {list.length}
+                    </span>
+                  </div>
+
+                  <Droppable droppableId={stage.id}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
                         className={cn(
-                          "cursor-grab rounded-lg border border-border bg-card p-3 active:cursor-grabbing",
-                          dragging === lead.id && "opacity-50",
+                          "space-y-2 min-h-[150px] transition-colors rounded-lg",
+                          snapshot.isDraggingOver && "bg-muted/30",
                         )}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="inline-flex items-center gap-1.5 text-sm font-medium leading-tight">
-                            {lead.name}
-                            <NoteIndicator notes={lead.notes} />
-                          </p>
-                          <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
-                            {lead.score ?? 0}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {lead.address || "Endereço não informado"}
-                        </p>
+                        {list.map((lead, index) => {
+                          const link = whatsappLink(lead.phone);
+                          return (
+                            <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
+                              {(provided, snapshot) => (
+                                <article
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={cn(
+                                    "rounded-lg border border-border bg-card p-3 transition-shadow",
+                                    snapshot.isDragging &&
+                                      "shadow-xl ring-1 ring-primary/20 bg-card/95",
+                                  )}
 
-                        {lead.proposal_value && (
-                          <p className="mt-2 text-[11px] font-medium text-primary">
-                            Proposta: {formatBRL(lead.proposal_value.toString())}
+                                  style={{ ...provided.draggableProps.style }}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium leading-tight">{lead.name}</p>
+                                    <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
+                                      {lead.score ?? 0}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {lead.address || "Endereço não informado"}
+                                  </p>
+
+                                  {lead.proposal_value && (
+                                    <p className="mt-2 text-[11px] font-medium text-primary">
+                                      Proposta:{" "}
+                                      {new Intl.NumberFormat("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                      }).format(lead.proposal_value)}
+                                    </p>
+                                  )}
+                                  {lead.deal_value && (
+                                    <p className="mt-2 text-[11px] font-medium text-green-600 dark:text-green-400">
+                                      Fechamento:{" "}
+                                      {new Intl.NumberFormat("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                      }).format(lead.deal_value)}
+                                    </p>
+                                  )}
+
+                                  <div className="mt-3 flex gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => setDetail(lead)}
+                                    >
+                                      Detalhes
+                                    </Button>
+                                    {link && (
+                                      <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 gap-1 text-xs"
+                                      >
+                                        <a href={link} target="_blank" rel="noreferrer">
+                                          <MessageCircle className="size-3" />
+                                          WhatsApp
+                                        </a>
+                                      </Button>
+                                    )}
+                                  </div>
+                                </article>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+
+                        {provided.placeholder}
+
+                        {!list.length && !snapshot.isDraggingOver && (
+                          <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
+                            Arraste leads para cá
                           </p>
                         )}
-
-                        {lead.deal_value && (
-                          <p className="mt-2 text-[11px] font-medium text-green-600 dark:text-green-400">
-                            Fechamento: {formatBRL(lead.deal_value.toString())}
-                          </p>
-                        )}
-
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={() => setDetail(lead)}
-                          >
-                            Detalhes
-                          </Button>
-                          {link && (
-                            <Button
-                              asChild
-                              size="sm"
-                              variant="outline"
-                              className="h-7 gap-1 text-xs"
-                            >
-                              <a href={link} target="_blank" rel="noreferrer">
-                                <MessageCircle className="size-3" />
-                                WhatsApp
-                              </a>
-                            </Button>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                  {!list.length && (
-                    <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
-                      Arraste leads para cá
-                    </p>
-                  )}
+                      </div>
+                    )}
+                  </Droppable>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </DragDropContext>
       )}
 
-      {/* Modal / Dialog de Valor */}
       <Dialog
         open={pendingMove !== null}
         onOpenChange={(open) => {
@@ -277,7 +306,6 @@ function ProspeccaoPage() {
                 : `Informe o valor fechado com ${pendingMove?.leadName ?? "o lead"}.`}
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-2 py-4">
             <Label htmlFor="deal-value">Valor (R$)</Label>
             <Input
@@ -295,7 +323,6 @@ function ProspeccaoPage() {
               }}
             />
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingMove(null)}>
               Cancelar

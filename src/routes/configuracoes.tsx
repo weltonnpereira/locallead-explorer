@@ -8,12 +8,12 @@ import { Switch } from "@/components/ui/switch";
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({
     meta: [
-      { title: "Configurações — LeadRadar" },
+      { title: "Configurações | LeadRadar" },
       {
         name: "description",
         content: "Ajuste preferências da sua conta LeadRadar e padrões de prospecção.",
       },
-      { property: "og:title", content: "Configurações — LeadRadar" },
+      { property: "og:title", content: "Configurações | LeadRadar" },
       {
         property: "og:description",
         content: "Preferências de conta, exportação e prospecção do LeadRadar.",

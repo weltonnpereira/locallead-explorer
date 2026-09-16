@@ -4,9 +4,10 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database.config import get_db
+from schemas.scripts import ScriptResponse, PayloadScript
+from database.config import clear_leads_cache, clear_script_cache, get_db
 from database import config as database_config
-from database.models import Campaign, CampaignStatus, Lead, LeadStatus
+from database.models import Campaign, Lead, LeadStatus, Scripts
 from schemas.campaign import (
     CampaignCreateRequest,
     CampaignResponse,
@@ -17,7 +18,6 @@ from schemas.campaign import (
 from services.rate_limit import read_rate_limit, write_rate_limit
 
 router = APIRouter(prefix="/api/v1", tags=["CRM Analytics"])
-
 
 def campaign_response(campaign: Campaign) -> CampaignResponse:
     leads = campaign.leads
@@ -36,7 +36,15 @@ def campaign_response(campaign: Campaign) -> CampaignResponse:
         generated_value=sum(lead.deal_value or 0 for lead in leads if lead.status == LeadStatus.CUSTOMER),
         created_at=campaign.created_at,
     )
-
+    
+def script_response(campaign: Scripts) -> ScriptResponse:
+       return ScriptResponse(
+        id=campaign.id,
+        title=campaign.title,
+        category=campaign.category,
+        content=campaign.content,
+        created_at=campaign.created_at
+    )   
 
 @router.get("/dashboard", dependencies=[Depends(read_rate_limit)])
 async def dashboard(db: Session = Depends(get_db)):
@@ -99,18 +107,39 @@ async def dashboard(db: Session = Depends(get_db)):
 
 
 @router.get("/campaigns", response_model=list[CampaignResponse], dependencies=[Depends(read_rate_limit)])
-def list_campaigns(db: Session = Depends(get_db)):
-    return [campaign_response(campaign) for campaign in db.query(Campaign).order_by(Campaign.created_at.desc()).all()]
+async def list_campaigns(db: Session = Depends(get_db)):
+    cache_key = "campaigns:v1"
+    
+    redis = database_config.redis_client
 
+    if redis:
+        try:
+            cached_dashboard = await redis.get(cache_key)
+            if cached_dashboard:
+                return json.loads(cached_dashboard)
+        except Exception:
+            redis = None
+            
+    result = [campaign_response(campaign) for campaign in db.query(Campaign).order_by(Campaign.created_at.desc()).all()]
+            
+    if redis:
+        try:
+            await redis.set(cache_key, json.dumps(result), ex=300)
+        except Exception:
+            pass
+    
+    return result
 
 @router.post("/campaigns", response_model=CampaignResponse, dependencies=[Depends(write_rate_limit)])
 def create_campaign(payload: CampaignCreateRequest, db: Session = Depends(get_db)):
+    if not payload.name or not payload.category or not payload.city:
+        raise HTTPException(status_code=400, detail="Termos faltando.")
+    
     campaign = Campaign(name=payload.name, category=payload.category, city=payload.city)
     db.add(campaign)
     db.commit()
     db.refresh(campaign)
     return campaign_response(campaign)
-
 
 @router.patch("/campaigns/{campaign_id}/status", response_model=CampaignResponse, dependencies=[Depends(write_rate_limit)])
 def update_campaign_status(campaign_id: int, payload: CampaignStatusUpdateRequest, db: Session = Depends(get_db)):
@@ -124,7 +153,7 @@ def update_campaign_status(campaign_id: int, payload: CampaignStatusUpdateReques
 
 
 @router.post("/campaigns/{campaign_id}/leads", dependencies=[Depends(write_rate_limit)])
-def add_campaign_leads(campaign_id: int, lead_ids: list[int], db: Session = Depends(get_db)):
+async def add_campaign_leads(campaign_id: int, lead_ids: list[int], db: Session = Depends(get_db)):
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -135,6 +164,7 @@ def add_campaign_leads(campaign_id: int, lead_ids: list[int], db: Session = Depe
         if lead not in campaign.leads:
             campaign.leads.append(lead)
     db.commit()
+    await clear_leads_cache()
     return {"campaign_id": campaign_id, "updated": len(leads)}
 
 
@@ -165,3 +195,50 @@ def update_deal(lead_id: int, payload: DealUpdateRequest, db: Session = Depends(
     db.commit()
     db.refresh(lead)
     return lead
+
+@router.get("/scripts", response_model=list[ScriptResponse], dependencies=[Depends(read_rate_limit)])
+async def list_scripts(db: Session = Depends(get_db)):
+    cache_key = "scripts:v1"
+        
+    redis = database_config.redis_client
+    
+    if redis:
+        try:
+            cached_dashboard = await redis.get(cache_key)
+            if cached_dashboard:
+                return json.loads(cached_dashboard)
+        except Exception:
+            redis = None
+            
+    result = [script_response(script) for script in db.query(Scripts).order_by(Scripts.created_at.desc()).all()]
+    
+    if redis:
+        try:
+            await redis.set(cache_key, json.dumps(result), ex=300)
+        except Exception:
+            pass
+
+    return result
+
+@router.post("/scripts", response_model=PayloadScript, dependencies=[Depends(write_rate_limit)])
+async def create_script(payload: PayloadScript, db: Session = Depends(get_db)):
+    if not payload.title or not payload.category or not payload.content:
+            raise HTTPException(status_code=400, detail="Termos faltando.")
+    
+    script = Scripts(title=payload.title, category=payload.category, content=payload.content)
+    db.add(script)
+    db.commit()
+    await clear_script_cache()
+    return script_response(script)
+    
+@router.delete("/scripts/{script_id}", dependencies=[Depends(write_rate_limit)])
+async def delete_script(script_id: int, db: Session = Depends(get_db)):
+    script = db.query(Scripts).filter(Scripts.id == script_id).first()
+    
+    if not script:
+        raise HTTPException(status_code=404, detail="Script não encontrado.")
+    
+    db.delete(script)
+    db.commit()
+    await clear_script_cache()
+    return {"detail": "Script excluído com sucesso."}

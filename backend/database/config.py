@@ -25,11 +25,25 @@ async def clear_leads_cache():
         leads_keys = await redis_client.keys("leads:*")
 
         dashboard_keys = await redis_client.keys("dashboard:*")
+        
+        campaigns = await redis_client.keys("campaigns:*")
 
-        all_keys_to_delete = leads_keys + dashboard_keys
+        all_keys_to_delete = leads_keys + dashboard_keys + campaigns
 
         if all_keys_to_delete:
             await redis_client.delete(*all_keys_to_delete)
+    except Exception:
+        pass
+    
+async def clear_script_cache():
+    if not redis_client:
+        return
+    
+    try:
+        script_keys = await redis_client.keys("scripts:*")
+        
+        if script_keys:
+            await redis_client.delete(*script_keys)
     except Exception:
         pass
 

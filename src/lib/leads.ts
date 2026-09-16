@@ -1,76 +1,15 @@
-export type OpportunityFactor = {
-  label?: string;
-  points?: number;
-};
-
-export type Lead = {
-  id?: number;
-  name: string;
-  phone: string | null;
-  address: string | null;
-  rating: number | null;
-  reviews: number;
-  website: string | null;
-  google_maps_url?: string | null;
-  score?: number | null;
-  status?: LeadStatus;
-  in_prospecting?: boolean;
-  proposal_value?: number | null;
-  deal_value?: number | null;
-  deal_closed_at?: string | null;
-  notes?: string | null;
-  factors?: OpportunityFactor[];
-};
-
-export type LeadStatus =
-  "NEW" | "CONTACTED" | "REPLIED" | "MEETING" | "PROPOSAL" | "CUSTOMER" | "LOST";
-
-export type SearchProgress = {
-  status: "queued" | "running" | "completed" | "failed";
-  progress: number;
-  message: string;
-  processed?: number;
-  total?: number;
-};
-
-export type SearchHistoryItem = {
-  id: number;
-  term: string;
-  city: string;
-  leads: number;
-  created_at: string;
-};
-
-export type DashboardData = {
-  metrics: { label: string; value: number | string; hint: string }[];
-  funnel: { label: string; value: number }[];
-  campaigns: Campaign[];
-  niches: {
-    niche: string;
-    leads: number;
-    contacted: number;
-    replies: number;
-    meetings: number;
-    customers: number;
-    conversion: string;
-  }[];
-};
-
-export type Campaign = {
-  id: number;
-  name: string;
-  category: string | null;
-  city: string | null;
-  status: string;
-  leads: number;
-  opportunities: number;
-  contacted: number;
-  replies: number;
-  meetings: number;
-  customers: number;
-  generated_value: number;
-  created_at: string;
-};
+import { DashboardData } from "@/schemas/dashboard";
+import { Lead, LeadStatus, OpportunityFactor } from "@/schemas/lead";
+import { SearchHistoryItem, SearchProgress } from "@/schemas/search";
+import { PayloadScript, Script } from "@/schemas/script";
+import { Campaign } from "@/schemas/campaign";
+export type { Campaign };
+export type { Script };
+export type { Lead };
+export type { SearchProgress };
+export type { LeadStatus };
+export type { SearchHistoryItem };
+export type { DashboardData };
 
 const API_ROOT = "http://127.0.0.1:8000/api/v1";
 
@@ -174,6 +113,13 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
   const response = await fetch(`${API_ROOT}/campaigns`);
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as Campaign[];
+}
+
+export async function fetchScripts(): Promise<Script[]> {
+  const response = await fetch(`${API_ROOT}/scripts`);
+  if (!response.ok) throw new Error(await readError(response));
+  console.log(response.json);
+  return (await response.json()) as Script[];
 }
 
 export async function createCampaign(input: {
@@ -312,6 +258,23 @@ async function waitForSearch(
     };
     socket.onerror = () => reject(new Error("Não foi possível acompanhar o progresso da busca."));
   });
+}
+
+export async function createScript(payload: PayloadScript): Promise<Script> {
+  const response = await fetch(`${API_ROOT}/scripts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as Script;
+}
+
+export async function deleteScript(id: number): Promise<void> {
+  const response = await fetch(`${API_ROOT}/scripts/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await readError(response));
 }
 
 /** Monta o link do WhatsApp a partir de um telefone em qualquer formato. */

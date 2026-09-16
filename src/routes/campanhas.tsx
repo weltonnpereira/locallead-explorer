@@ -4,17 +4,18 @@ import { useEffect, useState } from "react";
 import { AppShell, EmptyState } from "@/components/layout/app-shell";
 import { fetchCampaigns, type Campaign } from "@/lib/leads";
 import { formatBRL } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/campanhas")({
   head: () => ({
     meta: [
-      { title: "Campanhas — LeadRadar" },
+      { title: "Campanhas | LeadRadar" },
       {
         name: "description",
         content:
           "Acompanhe o desempenho das suas campanhas de prospecção por nicho, localização e receita gerada.",
       },
-      { property: "og:title", content: "Campanhas — LeadRadar" },
+      { property: "og:title", content: "Campanhas | LeadRadar" },
       {
         property: "og:description",
         content: "Resultados de cada campanha: leads, oportunidades, respostas e valor gerado.",
@@ -27,18 +28,41 @@ export const Route = createFileRoute("/campanhas")({
 });
 
 function CampanhasPage() {
+  const [loading, setLoading] = useState(true);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     fetchCampaigns()
-      .then(setCampaigns)
-      .catch((cause) =>
-        setError(
-          cause instanceof Error ? cause.message : "Não foi possível carregar as campanhas.",
-        ),
-      );
+      .then((result) => {
+        if (active) setCampaigns(result);
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(
+            cause instanceof Error ? cause.message : "Não foi possível carregar as campanhas.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
+
+  if (loading) {
+    return (
+      <AppShell title="Prospecção" subtitle="Acompanhe os leads selecionados por etapa">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Carregando prospecção...
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Campanhas" subtitle="Resultado comercial de cada campanha de prospecção">

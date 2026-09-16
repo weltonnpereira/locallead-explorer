@@ -19,6 +19,12 @@ class CampaignStatus(str, enum.Enum):
     PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"
     
+class ScriptCategory(str, enum.Enum):
+    WHATSAPP = "WHATSAPP"
+    EMAIL = "EMAIL"
+    COLD_CALL = "COLD_CALL"
+    INSTAGRAM = "INSTAGRAM"
+    
 search_lead_association = Table(
     'search_lead', Base.metadata,
     Column('search_id', Integer, ForeignKey('searches.id'), primary_key=True),
@@ -40,7 +46,14 @@ class Search(Base):
     created_at = Column(DateTime, default=func.now())
     
     leads = relationship('Lead', secondary=search_lead_association, back_populates='searches')
-
+    
+class Scripts(Base):
+    __tablename__ = 'scripts'
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    category = Column(Enum(ScriptCategory), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=func.now())
 
 class Campaign(Base):
     __tablename__ = 'campaigns'

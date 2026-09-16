@@ -33,7 +33,7 @@ export const Route = createFileRoute("/")({
         content:
           "Visão geral da sua prospecção: leads, oportunidades, contatos, respostas, reuniões e clientes.",
       },
-      { property: "og:title", content: "LeadRadar — Dashboard de prospecção" },
+      { property: "og:title", content: "LeadRadar | Dashboard de prospecção" },
       {
         property: "og:description",
         content: "Acompanhe funil, desempenho por nicho e campanhas de prospecção local.",
@@ -55,10 +55,10 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 const scheduleData = [
+  { day: "Segunda", morning: "—", afternoon: "14h–17h", priority: "Média" },
   { day: "Terça", morning: "09h–11h30", afternoon: "14h–17h", priority: "Alta" },
   { day: "Quarta", morning: "09h–11h30", afternoon: "14h–17h", priority: "Alta" },
   { day: "Quinta", morning: "09h–11h30", afternoon: "14h–17h", priority: "Alta" },
-  { day: "Segunda", morning: "—", afternoon: "14h–17h", priority: "Média" },
   { day: "Sexta", morning: "09h–12h", afternoon: "—", priority: "Média" },
 ];
 

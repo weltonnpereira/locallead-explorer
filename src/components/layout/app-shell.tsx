@@ -12,6 +12,7 @@ import {
   Settings,
   Target,
   History,
+  ScrollText,
   Users,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ const NAV = [
   { to: "/prospeccao", label: "Prospecção", icon: Target },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone },
   { to: "/pesquisas", label: "Pesquisas", icon: History },
+  { to: "/scripts", label: "Scripts", icon: ScrollText },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 

@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as PesquisasRouteImport } from './routes/pesquisas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
+import { Route as ScriptsRouteImport } from './routes/scripts'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
   path: '/prospeccao',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScriptsRoute = ScriptsRouteImport.update({
+  id: '/scripts',
+  path: '/scripts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
   '/prospeccao': typeof ProspeccaoRoute
+  '/scripts': typeof ScriptsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
   '/prospeccao': typeof ProspeccaoRoute
+  '/scripts': typeof ScriptsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/pesquisas': typeof PesquisasRoute
   '/prospeccao': typeof ProspeccaoRoute
+  '/scripts': typeof ScriptsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/pesquisas'
     | '/prospeccao'
+    | '/scripts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/pesquisas'
     | '/prospeccao'
+    | '/scripts'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/pesquisas'
     | '/prospeccao'
+    | '/scripts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   PesquisasRoute: typeof PesquisasRoute
   ProspeccaoRoute: typeof ProspeccaoRoute
+  ScriptsRoute: typeof ScriptsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProspeccaoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scripts': {
+      id: '/scripts'
+      path: '/scripts'
+      fullPath: '/scripts'
+      preLoaderRoute: typeof ScriptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   PesquisasRoute: PesquisasRoute,
   ProspeccaoRoute: ProspeccaoRoute,
+  ScriptsRoute: ScriptsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

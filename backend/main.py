@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from database.config import init_redis, close_redis
 
@@ -39,6 +40,8 @@ async def add_security_headers(request: Request, call_next):
     res.headers["X-XSS-Protection"] = "1; mode=block"
     
     return res
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.include_router(leads_router)
 app.include_router(messages_router)
