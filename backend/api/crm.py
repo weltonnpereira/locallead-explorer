@@ -220,16 +220,34 @@ async def list_scripts(db: Session = Depends(get_db)):
 
     return result
 
-@router.post("/scripts", response_model=PayloadScript, dependencies=[Depends(write_rate_limit)])
+@router.post("/scripts", response_model=ScriptResponse, dependencies=[Depends(write_rate_limit)])
 async def create_script(payload: PayloadScript, db: Session = Depends(get_db)):
     if not payload.title or not payload.category or not payload.content:
-            raise HTTPException(status_code=400, detail="Termos faltando.")
+        raise HTTPException(status_code=400, detail="Termos faltando.")
     
     script = Scripts(title=payload.title, category=payload.category, content=payload.content)
     db.add(script)
     db.commit()
+    
     await clear_script_cache()
-    return script_response(script)
+    
+    return script
+
+@router.patch("/scripts/{script_id}", response_model=ScriptResponse, dependencies=[Depends(write_rate_limit)])
+async def edit_script(script_id: int, payload: PayloadScript, db: Session = Depends(get_db)):
+    script = db.query(Scripts).filter(Scripts.id == script_id).first()
+    if not script:
+        raise HTTPException(status_code=404, detail="Script not found")
+    
+    script.title = payload.title
+    script.category = payload.category
+    script.content = payload.content
+    db.commit()
+    db.refresh(script)
+    
+    await clear_script_cache()
+    
+    return script
     
 @router.delete("/scripts/{script_id}", dependencies=[Depends(write_rate_limit)])
 async def delete_script(script_id: int, db: Session = Depends(get_db)):

@@ -7,7 +7,6 @@ from playwright.async_api import async_playwright
 from services.sanitization import sanitize_business_name
 from services.search_progress import publish
 
-
 def canonical_maps_url(url: str | None) -> str | None:
     if not url:
         return None

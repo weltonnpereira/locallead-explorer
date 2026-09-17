@@ -270,6 +270,16 @@ export async function createScript(payload: PayloadScript): Promise<Script> {
   return (await response.json()) as Script;
 }
 
+export async function editScript(id: number, payload: PayloadScript): Promise<Script> {
+  const response = await fetch(`${API_ROOT}/scripts/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as Script;
+}
+
 export async function deleteScript(id: number): Promise<void> {
   const response = await fetch(`${API_ROOT}/scripts/${id}`, {
     method: "DELETE",

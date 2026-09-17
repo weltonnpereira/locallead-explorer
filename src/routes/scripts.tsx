@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Copy, Check, Plus, MessageSquare, X, Trash2, Loader2 } from "lucide-react";
+import { Copy, Check, Plus, MessageSquare, X, Trash2, Loader2, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 import { AppShell, EmptyState } from "@/components/layout/app-shell";
-import { createScript, deleteScript, fetchScripts, type Script } from "@/lib/leads";
+import { createScript, deleteScript, editScript, fetchScripts, type Script } from "@/lib/leads";
 import { Button } from "@/components/ui/button";
 import { ScriptCategory } from "@/schemas/script";
 import { CATEGORY_LABELS, scriptCategories } from "@/lib/utils";
@@ -33,12 +34,14 @@ function ScriptsPage() {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ScriptCategory>("WHATSAPP");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -61,8 +64,26 @@ function ScriptsPage() {
     };
   }, []);
 
-  const handleCreateScript = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenEdit = (script: Script) => {
+    setTitle(script.title);
+    setCategory(script.category);
+    setContent(script.content);
+    setEditingId(script.id);
+    setIsEditModalOpen(true);
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setCategory("WHATSAPP");
+    setContent("");
+    setEditingId(null);
+    // setError(null);
+  };
+
+  const handleCreateScript = async (formData: FormData) => {
+    const title = formData.get("title") as string;
+    const category = formData.get("category") as ScriptCategory;
+    const content = formData.get("content") as string;
     if (!title.trim() || !content.trim()) return;
 
     try {
@@ -71,13 +92,30 @@ function ScriptsPage() {
       const newScript = await createScript({ title, category, content });
 
       setScripts([newScript, ...scripts]);
+      toast.success("Script criado com sucesso!");
 
-      setTitle("");
-      setCategory("WHATSAPP");
-      setContent("");
       setIsModalOpen(false);
     } catch (cause) {
+      toast.error("Erro ao criar script.");
       setError(cause instanceof Error ? cause.message : "Erro ao criar script.");
+    }
+  };
+
+  const handleEditScript = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim() || !editingId) return;
+
+    try {
+      const updatedScript = await editScript(editingId, { title, category, content });
+
+      setScripts((prev) => prev.map((s) => (s.id === editingId ? updatedScript : s)));
+      toast.success("Script editado com sucesso!");
+
+      setIsEditModalOpen(false);
+      resetForm();
+    } catch (cause) {
+      toast.error("Erro ao editar script.");
+      setError(cause instanceof Error ? cause.message : "Erro ao editar script.");
     }
   };
 
@@ -89,11 +127,13 @@ function ScriptsPage() {
       await deleteScript(id);
 
       setScripts((prev) => prev.filter((script) => script.id !== id));
+      toast.success("Script excluido com sucesso!");
 
       if (selectedScript?.id === id) {
         setSelectedScript(null);
       }
     } catch (cause) {
+      toast.error("Erro ao excluir script.");
       setError(cause instanceof Error ? cause.message : "Erro ao excluir script.");
     }
   };
@@ -168,6 +208,16 @@ function ScriptsPage() {
                 >
                   <MessageSquare className="size-3.5" />
                   Ver Script
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleOpenEdit(script)}
+                  aria-label="Editar script"
+                >
+                  <Pencil className="size-3.5" />
                 </Button>
 
                 <Button
@@ -275,7 +325,85 @@ function ScriptsPage() {
             </div>
 
             <form
-              onSubmit={handleCreateScript}
+              action={handleCreateScript}
+              className="mt-4 flex-1 overflow-y-auto flex flex-col space-y-4 pr-1"
+            >
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground">Título</label>
+
+                <input
+                  type="text"
+                  required
+                  name="title"
+                  placeholder="Ex: Abordagem Inicial - WhatsApp"
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground">Canal</label>
+
+                <select
+                  name="category"
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                >
+                  {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex-1 flex flex-col">
+                <label className="block text-xs font-medium text-muted-foreground">
+                  Conteúdo do Script
+                </label>
+
+                <textarea
+                  required
+                  name="content"
+                  placeholder="Escreva seu script aqui... Use [Nome] para personalizar."
+                  className="mt-1 w-full flex-1 min-h-[150px] rounded-lg border border-border bg-background px-3 py-2 text-md leading-relaxed focus:outline-none focus:ring-1 focus:ring-foreground resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+
+                <Button type="submit" size="sm">
+                  Salvar Script
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl h-[85vh] flex flex-col rounded-xl border border-border bg-card p-6 shadow-lg">
+            <div className="flex items-center justify-between shrink-0">
+              <h3 className="text-base font-semibold">Editar Script de Abordagem</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => setIsModalOpen(false)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            <form
+              onSubmit={handleEditScript}
               className="mt-4 flex-1 overflow-y-auto flex flex-col space-y-4 pr-1"
             >
               <div>
@@ -323,7 +451,7 @@ function ScriptsPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setIsEditModalOpen(false)}
                 >
                   Cancelar
                 </Button>

@@ -5,6 +5,17 @@ _CONTROL_CHARS = re.compile(r"[\u0000-\u001f\u007f-\u009f\u200b\u200c\u200d\ufef
 _HTML_TAGS = re.compile(r"<[^>]*>")
 _MULTIPLE_SPACES = re.compile(r"\s+")
 
+def normalize(text: str | None) -> str:
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFKD", str(text))
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = text.lower()
+    return re.sub(r"[^a-z0-9]", "", text)
+
+def normalize_phone(phone: str) -> str:
+    return re.sub(r"\D", "", phone or "")
+
 def sanitize_text(value: str, *, max_length: int) -> str:
     value = unicodedata.normalize("NFKC", value)
     value = _HTML_TAGS.sub(" ", value)

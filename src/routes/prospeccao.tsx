@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Copy, Loader2, MapPin, MessageCircle } from "lucide-react";
+import { Copy, Loader2, MapPin, MessageCircle, Paperclip, Search, StickyNote } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 
 import { AppShell, EmptyState } from "@/components/layout/app-shell";
@@ -212,6 +212,12 @@ function ProspeccaoPage() {
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <p className="text-sm font-medium leading-tight">{lead.name}</p>
+                                    {lead.notes ? (
+                                      <StickyNote
+                                        className="size-3.5 shrink-0 text-muted-foreground"
+                                        aria-label="Com nota"
+                                      />
+                                    ) : null}
                                     <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
                                       {lead.score ?? 0}
                                     </span>
