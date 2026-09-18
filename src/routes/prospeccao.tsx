@@ -1,6 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Copy, Loader2, MapPin, MessageCircle, Paperclip, Search, StickyNote } from "lucide-react";
+import {
+  Copy,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Paperclip,
+  Search,
+  History,
+  StickyNote,
+  Target,
+  ArrowLeft,
+} from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 
 import { AppShell, EmptyState } from "@/components/layout/app-shell";
@@ -19,6 +30,8 @@ import { Label } from "@/components/ui/label";
 
 import { getInsight, suggestionFor } from "@/lib/lead-insights";
 import {
+  Campaign,
+  fetchCampaigns,
   fetchProspectingLeads,
   updateLeadStatus,
   whatsappLink,
@@ -59,34 +72,58 @@ type PendingMove = {
 };
 
 function ProspeccaoPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  const [loadingLeads, setLoadingLeads] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<Lead | null>(null);
 
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [valueInput, setValueInput] = useState("");
 
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+
   useEffect(() => {
     let active = true;
-    fetchProspectingLeads()
+    fetchCampaigns()
       .then((result) => {
-        if (active) setLeads(result);
+        if (active) setCampaigns(result);
       })
       .catch((cause) => {
-        if (active) {
-          setError(
-            cause instanceof Error ? cause.message : "Não foi possível carregar a prospecção.",
-          );
-        }
+        if (active)
+          setError(cause instanceof Error ? cause.message : "Erro ao carregar campanhas.");
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setLoadingCampaigns(false);
       });
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedCampaign) {
+      setLeads([]);
+      return;
+    }
+
+    let active = true;
+    setLoadingLeads(true);
+    fetchProspectingLeads(selectedCampaign.id)
+      .then((result) => {
+        if (active) setLeads(result);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Erro ao carregar leads.");
+      })
+      .finally(() => {
+        if (active) setLoadingLeads(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedCampaign]);
 
   async function executeMove(leadId: number, status: LeadStatus, extraValue?: string) {
     const previous = leads;
@@ -141,12 +178,16 @@ function ProspeccaoPage() {
     setValueInput("");
   }
 
-  if (loading) {
+  const handleBackToCampaigns = () => {
+    setSelectedCampaign(null);
+  };
+
+  if (loadingCampaigns) {
     return (
       <AppShell title="Prospecção" subtitle="Acompanhe os leads selecionados por etapa">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
-          Carregando prospecção...
+          Carregando campanhas...
         </div>
       </AppShell>
     );
@@ -159,137 +200,195 @@ function ProspeccaoPage() {
           {error}
         </p>
       )}
-      {!leads.length ? (
-        <EmptyState
-          title="Nenhum lead na prospecção"
-          description="Selecione leads na página Encontrar Leads para começar."
-        />
-      ) : (
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-3">
-            {STAGES.map((stage) => {
-              const list = leads.filter((lead) => (lead.status ?? "NEW") === stage.id);
-              return (
-                <div
-                  key={stage.id}
-                  className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-card/60 p-3"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      {stage.label}
+      {!selectedCampaign ? (
+        !campaigns.length ? (
+          <EmptyState
+            title="Nenhuma campanha encontrada"
+            description="Adicione seus à prospecção e vincule em uma campanha."
+          />
+        ) : (
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            {campaigns.map((campaign) => (
+              <div
+                key={campaign.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground">
+                    <Target className="size-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium">{campaign.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {campaign.category} · {campaign.city} ·{" "}
+                      {new Date(campaign.created_at).toLocaleDateString("pt-BR")}
                     </p>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {list.length}
-                    </span>
                   </div>
-
-                  <Droppable droppableId={stage.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={cn(
-                          "space-y-2 min-h-[150px] transition-colors rounded-lg",
-                          snapshot.isDraggingOver && "bg-muted/30",
-                        )}
-                      >
-                        {list.map((lead, index) => {
-                          const link = whatsappLink(lead.phone);
-                          return (
-                            <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
-                              {(provided, snapshot) => (
-                                <article
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={cn(
-                                    "rounded-lg border border-border bg-card p-3 transition-shadow",
-                                    snapshot.isDragging &&
-                                      "shadow-xl ring-1 ring-primary/20 bg-card/95",
-                                  )}
-
-                                  style={{ ...provided.draggableProps.style }}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <p className="text-sm font-medium leading-tight">{lead.name}</p>
-                                    {lead.notes ? (
-                                      <StickyNote
-                                        className="size-3.5 shrink-0 text-muted-foreground"
-                                        aria-label="Com nota"
-                                      />
-                                    ) : null}
-                                    <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
-                                      {lead.score ?? 0}
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {lead.address || "Endereço não informado"}
-                                  </p>
-
-                                  {lead.proposal_value && (
-                                    <p className="mt-2 text-[11px] font-medium text-primary">
-                                      Proposta:{" "}
-                                      {new Intl.NumberFormat("pt-BR", {
-                                        style: "currency",
-                                        currency: "BRL",
-                                      }).format(lead.proposal_value)}
-                                    </p>
-                                  )}
-                                  {lead.deal_value && (
-                                    <p className="mt-2 text-[11px] font-medium text-green-600 dark:text-green-400">
-                                      Fechamento:{" "}
-                                      {new Intl.NumberFormat("pt-BR", {
-                                        style: "currency",
-                                        currency: "BRL",
-                                      }).format(lead.deal_value)}
-                                    </p>
-                                  )}
-
-                                  <div className="mt-3 flex gap-2">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 text-xs"
-                                      onClick={() => setDetail(lead)}
-                                    >
-                                      Detalhes
-                                    </Button>
-                                    {link && (
-                                      <Button
-                                        asChild
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 gap-1 text-xs"
-                                      >
-                                        <a href={link} target="_blank" rel="noreferrer">
-                                          <MessageCircle className="size-3" />
-                                          WhatsApp
-                                        </a>
-                                      </Button>
-                                    )}
-                                  </div>
-                                </article>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-
-                        {provided.placeholder}
-
-                        {!list.length && !snapshot.isDraggingOver && (
-                          <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
-                            Arraste leads para cá
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </Droppable>
                 </div>
-              );
-            })}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setSelectedCampaign(campaign)}
+                >
+                  <Search className="size-3.5" />
+                  Acessar Kanban
+                </Button>
+              </div>
+            ))}
           </div>
-        </DragDropContext>
+        )
+      ) : (
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center gap-4 border-b border-border pb-4">
+            <Button variant="ghost" size="sm" onClick={handleBackToCampaigns} className="gap-2">
+              <ArrowLeft className="size-4" />
+            </Button>
+            <div>
+              <h2 className="text-lg font-semibold">{selectedCampaign.name}</h2>
+              <p className="text-sm text-muted-foreground">Gerenciando prospecção desta campanha</p>
+            </div>
+          </div>
+
+          {loadingLeads ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
+              <Loader2 className="size-4 animate-spin" />
+              Carregando leads da campanha...
+            </div>
+          ) : (
+            <DragDropContext onDragEnd={onDragEnd}>
+              <div className="flex gap-3 overflow-x-auto pb-3">
+                {STAGES.map((stage) => {
+                  const list = leads.filter((lead) => (lead.status ?? "NEW") === stage.id);
+                  return (
+                    <div
+                      key={stage.id}
+                      className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-card/60 p-3"
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                          {stage.label}
+                        </p>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {list.length}
+                        </span>
+                      </div>
+
+                      <Droppable droppableId={stage.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              "space-y-2 min-h-[150px] transition-colors rounded-lg",
+                              snapshot.isDraggingOver && "bg-muted/30",
+                            )}
+                          >
+                            {list.map((lead, index) => {
+                              const link = whatsappLink(lead.phone);
+                              return (
+                                <Draggable
+                                  key={lead.id}
+                                  draggableId={String(lead.id)}
+                                  index={index}
+                                >
+                                  {(provided, snapshot) => (
+                                    <article
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      className={cn(
+                                        "rounded-lg border border-border bg-card p-3 transition-shadow",
+                                        snapshot.isDragging &&
+                                          "shadow-xl ring-1 ring-primary/20 bg-card/95",
+                                      )}
+
+                                      style={{ ...provided.draggableProps.style }}
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <p className="text-sm font-medium leading-tight">
+                                          {lead.name}
+                                        </p>
+                                        {lead.notes ? (
+                                          <StickyNote
+                                            className="size-3.5 shrink-0 text-muted-foreground"
+                                            aria-label="Com nota"
+                                          />
+                                        ) : null}
+                                        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] tabular-nums">
+                                          {lead.score ?? 0}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1 text-xs text-muted-foreground">
+                                        {lead.address || "Endereço não informado"}
+                                      </p>
+
+                                      {lead.proposal_value && (
+                                        <p className="mt-2 text-[11px] font-medium text-primary">
+                                          Proposta:{" "}
+                                          {new Intl.NumberFormat("pt-BR", {
+                                            style: "currency",
+                                            currency: "BRL",
+                                          }).format(lead.proposal_value)}
+                                        </p>
+                                      )}
+                                      {lead.deal_value && (
+                                        <p className="mt-2 text-[11px] font-medium text-green-600 dark:text-green-400">
+                                          Fechamento:{" "}
+                                          {new Intl.NumberFormat("pt-BR", {
+                                            style: "currency",
+                                            currency: "BRL",
+                                          }).format(lead.deal_value)}
+                                        </p>
+                                      )}
+
+                                      <div className="mt-3 flex gap-2">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 text-xs"
+                                          onClick={() => setDetail(lead)}
+                                        >
+                                          Detalhes
+                                        </Button>
+                                        {link && (
+                                          <Button
+                                            asChild
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 gap-1 text-xs"
+                                          >
+                                            <a href={link} target="_blank" rel="noreferrer">
+                                              <MessageCircle className="size-3" />
+                                              WhatsApp
+                                            </a>
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </article>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+
+                            {provided.placeholder}
+
+                            {!list.length && !snapshot.isDraggingOver && (
+                              <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
+                                Arraste leads para cá
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
+              </div>
+            </DragDropContext>
+          )}
+        </div>
       )}
 
       <Dialog

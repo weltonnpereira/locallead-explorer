@@ -6,7 +6,7 @@ from datetime import datetime
 
 from database import config as database_config
 from database.config import SessionLocal, clear_leads_cache, get_db
-from database.models import Lead, LeadStatus, Search
+from database.models import Campaign, Lead, LeadStatus, Search
 from schemas.lead import NotesUpdateRequest, ScrapingRequest, StatusUpdateRequest, LeadResponse
 from services.leads import save_scraped_leads
 from services.scraper import canonical_maps_url, scrape_google_maps
@@ -144,11 +144,12 @@ async def list_leads(
     limit: int = 50,
     prospecting: bool = False,
     search_id: int | None = None,
+    campaign_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     skip = max(skip, 0)
     limit = min(max(limit, 1), 100)
-    cache_key = f"leads:v3:skip:{skip}:limit:{limit}:prospecting:{prospecting}:search:{search_id}"
+    cache_key = f"leads:v3:skip:{skip}:limit:{limit}:prospecting:{prospecting}:search:{search_id}:campaign:{campaign_id}"
     
     redis = database_config.redis_client
     if redis:
@@ -164,6 +165,9 @@ async def list_leads(
         query = query.filter(Lead.in_prospecting.is_(True))
     if search_id is not None:
         query = query.filter(Lead.searches.any(Search.id == search_id))
+    if campaign_id is not None:
+        query = query.filter(Lead.campaigns.any(Campaign.id == campaign_id))
+        
     leads = query.order_by(Lead.score.desc()).offset(skip).limit(limit).all()
     
     leads_list_json = []

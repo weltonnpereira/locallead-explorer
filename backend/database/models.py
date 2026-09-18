@@ -65,7 +65,6 @@ class Campaign(Base):
     created_at = Column(DateTime, default=func.now())
     leads = relationship('Lead', secondary=campaign_lead_association, back_populates='campaigns')
 
-
 class WebsiteAnalysis(Base):
     __tablename__ = 'website_analyses'
 

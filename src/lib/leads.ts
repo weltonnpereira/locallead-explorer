@@ -64,8 +64,13 @@ export async function addLeadsToProspecting(leadIds: number[]): Promise<void> {
   if (!response.ok) throw new Error(await readError(response));
 }
 
-export async function fetchProspectingLeads(): Promise<Lead[]> {
-  const response = await fetch(`${API_ROOT}/leads?prospecting=true&limit=100`);
+export async function fetchProspectingLeads(campaignId?: number): Promise<Lead[]> {
+  let url = `${API_ROOT}/leads?prospecting=true&limit=100`;
+  if (campaignId) {
+    url += `&campaign_id=${campaignId}`;
+  }
+
+  const response = await fetch(url);
   if (!response.ok) throw new Error(await readError(response));
   const payload = (await response.json()) as unknown;
   return Array.isArray(payload)
