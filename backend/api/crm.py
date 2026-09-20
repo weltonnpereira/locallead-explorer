@@ -10,6 +10,7 @@ from database import config as database_config
 from database.models import Campaign, Lead, LeadStatus, Scripts
 from schemas.campaign import (
     CampaignCreateRequest,
+    CampaignProspectionResponse,
     CampaignResponse,
     CampaignStatusUpdateRequest,
     DealUpdateRequest,
@@ -34,6 +35,16 @@ def campaign_response(campaign: Campaign) -> CampaignResponse:
         meetings=sum(lead.status in {LeadStatus.MEETING, LeadStatus.PROPOSAL, LeadStatus.CUSTOMER} for lead in leads),
         customers=sum(lead.status == LeadStatus.CUSTOMER for lead in leads),
         generated_value=sum(lead.deal_value or 0 for lead in leads if lead.status == LeadStatus.CUSTOMER),
+        created_at=campaign.created_at,
+    )
+    
+def campaign_prospection_response(campaign: Campaign) -> CampaignProspectionResponse:
+    leads = campaign.leads
+    return CampaignProspectionResponse(
+        id=campaign.id,
+        name=campaign.name,
+        category=campaign.category,
+        city=campaign.city,
         created_at=campaign.created_at,
     )
     
@@ -105,22 +116,24 @@ async def dashboard(db: Session = Depends(get_db)):
 
     return result
 
-
-@router.get("/campaigns", response_model=list[CampaignResponse], dependencies=[Depends(read_rate_limit)])
-async def list_campaigns(db: Session = Depends(get_db)):
-    cache_key = "campaigns:v1"
+@router.get("/campaigns", dependencies=[Depends(read_rate_limit)])
+async def list_campaigns(prospecting: bool = False, db: Session = Depends(get_db)):   
+    cache_key = f"campaigns:v1:prospections:{prospecting}"
     
     redis = database_config.redis_client
-
     if redis:
         try:
-            cached_dashboard = await redis.get(cache_key)
-            if cached_dashboard:
-                return json.loads(cached_dashboard)
+            cached_campaigns = await redis.get(cache_key)
+            if cached_campaigns:
+                return json.loads(cached_campaigns)
         except Exception:
             redis = None
-            
-    result = [campaign_response(campaign) for campaign in db.query(Campaign).order_by(Campaign.created_at.desc()).all()]
+        
+    result = None
+    if prospecting:
+        result = [campaign_prospection_response(campaign) for campaign in db.query(Campaign).order_by(Campaign.created_at.desc()).all()]
+    else:
+        result = [campaign_response(campaign) for campaign in db.query(Campaign).order_by(Campaign.created_at.desc()).all()]
             
     if redis:
         try:

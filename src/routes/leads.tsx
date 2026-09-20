@@ -17,12 +17,14 @@ import {
   Star,
   StickyNote,
   Target,
+  Trash,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, EmptyState, MetricCard } from "@/components/layout/app-shell";
 import { AddToProspectingDialog } from "@/components/leads/add-to-prospecting-dialog";
+import { toast } from "sonner";
 import { LeadNotes } from "@/components/leads/lead-notes";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,6 +53,7 @@ import {
 } from "@/lib/leads";
 import { cn, formatBRL, prettyStatus } from "@/lib/utils";
 import { statusTextColors } from "@/lib_tsx/utils";
+import { DeleteDialog } from "@/components/leads/delete-dialog";
 
 export const Route = createFileRoute("/leads")({
   head: () => ({
@@ -138,6 +141,7 @@ function LeadsPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [dialogIds, setDialogIds] = useState<number[]>([]);
   const [detail, setDetail] = useState<Row | null>(null);
 
@@ -236,6 +240,13 @@ function LeadsPage() {
     setDialogOpen(true);
   }
 
+  function openDeleteDialog() {
+    const ids = selectedLeadIds();
+    if (!ids.length) return;
+    setDialogIds(ids);
+    setDeleteOpen(true);
+  }
+
   async function handleProspectingSuccess(ids: number[]) {
     try {
       await addLeadsToProspecting(ids);
@@ -249,6 +260,18 @@ function LeadsPage() {
         ) ?? null,
     );
     setSelected(new Set());
+    toast.success("Lead adicionado à prospecção com sucesso!");
+  }
+
+  async function handleDeleteSuccess(ids: number[]) {
+    setLeads(
+      (current) =>
+        current?.map((lead) =>
+          ids.includes(lead.id ?? -1) ? { ...lead, in_prospecting: true } : lead,
+        ) ?? null,
+    );
+    setSelected(new Set());
+    toast.success("Lead deletado com sucesso!");
   }
 
   async function handleExport() {
@@ -459,6 +482,17 @@ function LeadsPage() {
             size="sm"
             className="h-8 gap-1.5 text-xs"
             disabled={selected.size === 0}
+            onClick={openDeleteDialog}
+          >
+            <Trash className="size-3.5" />
+            Excluir
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            disabled={selected.size === 0}
             onClick={openProspectingDialog}
           >
             <Target className="size-3.5" />
@@ -543,7 +577,9 @@ function LeadsPage() {
                             onClick={() => setDetail(row)}
                             className="text-left"
                           >
-                            <span className="style inline-flex items-center gap-1.5 text-sm font-medium group-hover:underline">
+                            <span
+                              className={`style inline-flex items-center gap-1.5 text-sm font-medium group-hover:underline ${row.lead.in_prospecting ? "text-sky-700 dark:text-sky-400" : ""}`}
+                            >
                               {row.lead.name}
                               <NoteIndicator notes={row.lead.notes} />
                             </span>
@@ -698,6 +734,13 @@ function LeadsPage() {
         onOpenChange={setDialogOpen}
         leadIds={dialogIds}
         onSuccess={(ids) => void handleProspectingSuccess(ids)}
+      />
+
+      <DeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        id={dialogIds}
+        onSuccess={(ids) => void handleDeleteSuccess(ids)}
       />
     </AppShell>
   );

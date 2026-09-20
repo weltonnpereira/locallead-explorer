@@ -12,12 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  addLeadsToCampaign,
-  createCampaign,
-  fetchCampaigns,
-  type Campaign,
-} from "@/lib/leads";
+import { addLeadsToCampaign, createCampaign, fetchCampaigns, type Campaign } from "@/lib/leads";
 
 type Step = "choice" | "create" | "existing";
 
@@ -57,11 +52,9 @@ export function AddToProspectingDialog({ open, onOpenChange, leadIds, onSuccess 
     setError(null);
     setLoadingCampaigns(true);
     try {
-      setCampaigns(await fetchCampaigns());
+      setCampaigns(await fetchCampaigns(false));
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Não foi possível carregar as campanhas.",
-      );
+      setError(cause instanceof Error ? cause.message : "Não foi possível carregar as campanhas.");
       setCampaigns([]);
     } finally {
       setLoadingCampaigns(false);

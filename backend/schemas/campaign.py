@@ -24,6 +24,13 @@ class CampaignResponse(BaseModel):
     customers: int
     generated_value: int
     created_at: datetime
+    
+class CampaignProspectionResponse(BaseModel):
+    id: int
+    name: str
+    category: str | None
+    city: str | None
+    created_at: datetime
 
 class ProposalUpdateRequest(BaseModel):
     value: int = Field(ge=0)

@@ -34,7 +34,7 @@ function CampanhasPage() {
 
   useEffect(() => {
     let active = true;
-    fetchCampaigns()
+    fetchCampaigns(false)
       .then((result) => {
         if (active) setCampaigns(result);
       })

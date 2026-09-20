@@ -114,8 +114,13 @@ export async function fetchDashboard(): Promise<DashboardData> {
   return (await response.json()) as DashboardData;
 }
 
-export async function fetchCampaigns(): Promise<Campaign[]> {
-  const response = await fetch(`${API_ROOT}/campaigns`);
+export async function fetchCampaigns(prospecting: boolean): Promise<Campaign[]> {
+  let url = `${API_ROOT}/campaigns`;
+  if (prospecting) {
+    url += `?prospecting=${prospecting}`;
+  }
+
+  const response = await fetch(url);
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as Campaign[];
 }
@@ -204,7 +209,6 @@ async function readError(response: Response): Promise<string> {
   return data.detail || `Erro HTTP: ${response.status}`;
 }
 
-/** Inicia a busca no backend e acompanha seu progresso pelo WebSocket. */
 export async function fetchLeads(
   category: string,
   city: string,
@@ -287,6 +291,15 @@ export async function editScript(id: number, payload: PayloadScript): Promise<Sc
 
 export async function deleteScript(id: number): Promise<void> {
   const response = await fetch(`${API_ROOT}/scripts/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
+export async function deleteLead(ids: number[]): Promise<void> {
+  const idsParam = ids.join(",");
+
+  const response = await fetch(`${API_ROOT}/leads/${idsParam}`, {
     method: "DELETE",
   });
   if (!response.ok) throw new Error(await readError(response));

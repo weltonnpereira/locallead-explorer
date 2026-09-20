@@ -86,7 +86,7 @@ function ProspeccaoPage() {
 
   useEffect(() => {
     let active = true;
-    fetchCampaigns()
+    fetchCampaigns(true)
       .then((result) => {
         if (active) setCampaigns(result);
       })
