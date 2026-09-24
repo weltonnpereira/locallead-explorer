@@ -64,6 +64,15 @@ export async function addLeadsToProspecting(leadIds: number[]): Promise<void> {
   if (!response.ok) throw new Error(await readError(response));
 }
 
+export async function deleteLead(leadIds: number[]): Promise<void> {
+  const response = await fetch(`${API_ROOT}/leads/`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(leadIds),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
 export async function fetchProspectingLeads(campaignId?: number): Promise<Lead[]> {
   let url = `${API_ROOT}/leads?prospecting=true&limit=100`;
   if (campaignId) {
@@ -291,15 +300,6 @@ export async function editScript(id: number, payload: PayloadScript): Promise<Sc
 
 export async function deleteScript(id: number): Promise<void> {
   const response = await fetch(`${API_ROOT}/scripts/${id}`, {
-    method: "DELETE",
-  });
-  if (!response.ok) throw new Error(await readError(response));
-}
-
-export async function deleteLead(ids: number[]): Promise<void> {
-  const idsParam = ids.join(",");
-
-  const response = await fetch(`${API_ROOT}/leads/${idsParam}`, {
     method: "DELETE",
   });
   if (!response.ok) throw new Error(await readError(response));

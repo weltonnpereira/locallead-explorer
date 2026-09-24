@@ -135,6 +135,7 @@ function LeadsPage() {
   const [searchProgress, setSearchProgress] = useState<SearchProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [globalSearch, setGlobalSearch] = useState("");
   const [filter, setFilter] = useState<FilterId>("all");
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [query, setQuery] = useState({ category: "", city: "" });
@@ -183,14 +184,21 @@ function LeadsPage() {
 
   const visible = useMemo(() => {
     if (!rows) return null;
-    const list = rows.filter((row) => matches(row, filter) && row.insight.score >= minScore);
+
+    let list = rows.filter((row) => matches(row, filter) && row.insight.score >= minScore);
+
+    if (globalSearch.trim() !== "") {
+      const term = globalSearch.toLowerCase();
+      list = list.filter((row) => row.lead.name?.toLowerCase().includes(term));
+    }
+
     return [...list].sort((a, b) => {
       if (sortKey === "name") return a.lead.name.localeCompare(b.lead.name);
       if (sortKey === "rating") return (b.lead.rating ?? -1) - (a.lead.rating ?? -1);
       if (sortKey === "reviews") return b.lead.reviews - a.lead.reviews;
       return b.insight.score - a.insight.score;
     });
-  }, [rows, filter, sortKey, minScore]);
+  }, [rows, filter, sortKey, minScore, globalSearch]);
 
   const totalPages = Math.max(1, Math.ceil((visible?.length ?? 0) / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -264,12 +272,7 @@ function LeadsPage() {
   }
 
   async function handleDeleteSuccess(ids: number[]) {
-    setLeads(
-      (current) =>
-        current?.map((lead) =>
-          ids.includes(lead.id ?? -1) ? { ...lead, in_prospecting: true } : lead,
-        ) ?? null,
-    );
+    setLeads((current) => current?.filter((lead) => !ids.includes(lead.id ?? -1)) ?? null);
     setSelected(new Set());
     toast.success("Lead deletado com sucesso!");
   }
@@ -341,6 +344,8 @@ function LeadsPage() {
     <AppShell
       title="Encontrar Leads"
       subtitle="Encontre empresas locais e identifique oportunidades comerciais."
+      searchValue={globalSearch}
+      onSearchChange={setGlobalSearch}
     >
       <form onSubmit={handleSearch} className="rounded-xl border border-border bg-card p-4 md:p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">

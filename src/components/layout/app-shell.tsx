@@ -115,11 +115,15 @@ export function AppShell({
   title,
   subtitle,
   actions,
+  searchValue,
+  onSearchChange,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -168,6 +172,8 @@ export function AppShell({
                 placeholder="Pesquisar"
                 aria-label="Pesquisa global"
                 className="h-9 w-56 pl-9"
+                value={searchValue ?? ""}
+                onChange={(e) => onSearchChange?.(e.target.value)}
               />
             </div>
           </div>

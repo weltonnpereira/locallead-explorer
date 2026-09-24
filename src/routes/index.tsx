@@ -27,7 +27,7 @@ import { formatBRL } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — LeadRadar | Prospecção de leads locais" },
+      { title: "LeadRadar | Prospecção de leads locais" },
       {
         name: "description",
         content:

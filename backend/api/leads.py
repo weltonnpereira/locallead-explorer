@@ -7,7 +7,7 @@ from datetime import datetime
 
 from database import config as database_config
 from database.config import SessionLocal, clear_leads_cache, get_db
-from database.models import Campaign, Lead, LeadStatus, Search, search_lead_association
+from database.models import Campaign, Lead, LeadStatus, Search, search_lead_association, campaign_lead_association
 from schemas.lead import NotesUpdateRequest, ScrapingRequest, StatusUpdateRequest, LeadResponse
 from services.leads import save_scraped_leads
 from services.scraper import canonical_maps_url, scrape_google_maps
@@ -229,28 +229,23 @@ async def add_to_prospecting(lead_ids: list[int], db: Session = Depends(get_db))
     await clear_leads_cache()
     return {"updated": len(leads), "lead_ids": unique_ids}
 
-@router.delete("/leads/{lead_id}", dependencies=[Depends(write_rate_limit)])
-async def delete_lead(lead_id: str, db: Session = Depends(get_db)):
-    try:
-        ids_list = [int(id.strip()) for id in lead_id.split(",")]
-    except ValueError:
-        raise HTTPException(status_code=400, detail="IDs inválidos.")
+@router.delete("/leads/", dependencies=[Depends(write_rate_limit)])
+async def delete_lead(lead_ids: list[int], db: Session = Depends(get_db)):
+    unique_ids = list(dict.fromkeys(lead_ids))
+    if not unique_ids or len(unique_ids) > 100:
+        raise HTTPException(status_code=400, detail="Você pode excluir 100 leads por vez.")
     
-    if len(ids_list) > 100:
-        raise HTTPException(
-            status_code=400, 
-            detail="Você só pode excluir até 100 leads por vez."
-        )
-    
-    if not ids_list:
-        raise HTTPException(status_code=400, detail="Nenhum ID fornecido.")
-    
-    stmt = delete(search_lead_association).where(
-        search_lead_association.c.lead_id.in_(ids_list)
+    stmt_search = delete(search_lead_association).where(
+        search_lead_association.c.lead_id.in_(unique_ids)
     )
-    db.execute(stmt)
+    db.execute(stmt_search)
     
-    deleted_count = db.query(Lead).filter(Lead.id.in_(ids_list)).delete(synchronize_session=False)
+    stmt_campaign = delete(campaign_lead_association).where(
+        campaign_lead_association.c.lead_id.in_(unique_ids)
+    )
+    db.execute(stmt_campaign)
+    
+    deleted_count = db.query(Lead).filter(Lead.id.in_(unique_ids)).delete(synchronize_session=False)
     
     if deleted_count == 0:
         raise HTTPException(status_code=404, detail="Nenhum lead encontrado para exclusão")
@@ -258,6 +253,41 @@ async def delete_lead(lead_id: str, db: Session = Depends(get_db)):
     db.commit()
     await clear_leads_cache()
     return {"detail": "Lead excluído com sucesso."}
+
+# @router.delete("/leads/{lead_id}", dependencies=[Depends(write_rate_limit)])
+# async def delete_lead(lead_id: str, db: Session = Depends(get_db)):
+#     try:
+#         ids_list = [int(id.strip()) for id in lead_id.split(",")]
+#     except ValueError:
+#         raise HTTPException(status_code=400, detail="IDs inválidos.")
+    
+#     if len(ids_list) > 100:
+#         raise HTTPException(
+#             status_code=400, 
+#             detail="Você só pode excluir até 100 leads por vez."
+#         )
+    
+#     if not ids_list:
+#         raise HTTPException(status_code=400, detail="Nenhum ID fornecido.")
+    
+#     stmt_search = delete(search_lead_association).where(
+#         search_lead_association.c.lead_id.in_(ids_list)
+#     )
+#     db.execute(stmt_search)
+    
+#     stmt_campaign = delete(campaign_lead_association).where(
+#         campaign_lead_association.c.lead_id.in_(ids_list)
+#     )
+#     db.execute(stmt_campaign)
+    
+#     deleted_count = db.query(Lead).filter(Lead.id.in_(ids_list)).delete(synchronize_session=False)
+    
+#     if deleted_count == 0:
+#         raise HTTPException(status_code=404, detail="Nenhum lead encontrado para exclusão")
+    
+#     db.commit()
+#     await clear_leads_cache()
+#     return {"detail": "Lead excluído com sucesso."}
 
 @router.get("/leads/{lead_id}", dependencies=[Depends(read_rate_limit)])
 def get_lead(lead_id: int, db: Session = Depends(get_db)):
