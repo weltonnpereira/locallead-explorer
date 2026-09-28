@@ -184,7 +184,7 @@ function LeadsPage() {
 
   const visible = useMemo(() => {
     if (!rows) return null;
-
+    
     let list = rows.filter((row) => matches(row, filter) && row.insight.score >= minScore);
 
     if (globalSearch.trim() !== "") {

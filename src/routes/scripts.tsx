@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Copy, Check, Plus, MessageSquare, X, Trash2, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +29,16 @@ export const Route = createFileRoute("/scripts")({
   component: ScriptsPage,
 });
 
+type FilterId = "all" | keyof typeof CATEGORY_LABELS;
+
+const FILTERS: { id: FilterId; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "WHATSAPP", label: CATEGORY_LABELS.WHATSAPP },
+  { id: "EMAIL", label: CATEGORY_LABELS.EMAIL },
+  { id: "COLD_CALL", label: CATEGORY_LABELS.COLD_CALL },
+  { id: "INSTAGRAM", label: CATEGORY_LABELS.INSTAGRAM },
+];
+
 function ScriptsPage() {
   const [loading, setLoading] = useState(true);
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -36,6 +46,7 @@ function ScriptsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterId>("all");
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ScriptCategory>("WHATSAPP");
@@ -48,6 +59,7 @@ function ScriptsPage() {
     fetchScripts()
       .then((result) => {
         if (active) setScripts(result);
+        console.log(result);
       })
       .catch((cause) => {
         if (active) {
@@ -63,6 +75,11 @@ function ScriptsPage() {
       active = false;
     };
   }, []);
+
+  const filteredScripts = useMemo(() => {
+    if (filter === "all") return scripts;
+    return scripts.filter((script) => script.category === filter);
+  }, [scripts, filter]);
 
   const handleOpenEdit = (script: Script) => {
     setTitle(script.title);
@@ -178,74 +195,110 @@ function ScriptsPage() {
           description="Crie seu primeiro modelo de mensagem para começar a prospectar."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {scripts.map((script) => (
-            <article
-              key={script.id}
-              className="flex flex-col justify-between rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/20"
+        <div className="space-y-6">
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={filter === "all" ? "default" : "outline"}
+              onClick={() => setFilter("all")}
+              className="h-8 rounded-full px-3 text-xs"
             >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    {scriptCategories(script.category)}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(script.created_at).toLocaleDateString("pt-BR")}
-                  </span>
-                </div>
-                <h2 className="mt-3 text-sm font-semibold tracking-tight">{script.title}</h2>
-                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground whitespace-pre-line">
-                  {script.content}
-                </p>
+              Todos
+            </Button>
+
+            {(Object.entries(CATEGORY_LABELS) as [ScriptCategory, string][]).map(([key, label]) => (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant={filter === key ? "default" : "outline"}
+                onClick={() => setFilter(key)}
+                className="h-8 rounded-full px-3 text-xs"
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredScripts.length === 0 ? (
+              <div className="col-span-full">
+                <EmptyState
+                  title="Nenhum script dessa categoria encontrado"
+                  description="Crie seu primeiro modelo de mensagem nessa categoria para começar a prospectar."
+                />
               </div>
-
-              <div className="mt-5 flex items-center gap-1.5 border-t border-border pt-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1.5 text-xs"
-                  onClick={() => setSelectedScript(script)}
+            ) : (
+              filteredScripts.map((script) => (
+                <article
+                  key={script.id}
+                  className="flex flex-col justify-between rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/20"
                 >
-                  <MessageSquare className="size-3.5" />
-                  Ver Script
-                </Button>
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {scriptCategories(script.category)}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(script.created_at).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                    <h2 className="mt-3 text-sm font-semibold tracking-tight">{script.title}</h2>
+                    <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground whitespace-pre-line">
+                      {script.content}
+                    </p>
+                  </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => handleOpenEdit(script)}
-                  aria-label="Editar script"
-                >
-                  <Pencil className="size-3.5" />
-                </Button>
+                  <div className="mt-5 flex items-center gap-1.5 border-t border-border pt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-1.5 text-xs"
+                      onClick={() => setSelectedScript(script)}
+                    >
+                      <MessageSquare className="size-3.5" />
+                      Ver Script
+                    </Button>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0"
-                  onClick={() => handleCopy(script.content, script.id.toString())}
-                  aria-label="Copiar script"
-                >
-                  {copiedId === script.id.toString() ? (
-                    <Check className="size-3.5 text-green-500" />
-                  ) : (
-                    <Copy className="size-3.5" />
-                  )}
-                </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleOpenEdit(script)}
+                      aria-label="Editar script"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => handleDeleteScript(script.id)}
-                  aria-label="Excluir script"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
-            </article>
-          ))}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() => handleCopy(script.content, script.id.toString())}
+                      aria-label="Copiar script"
+                    >
+                      {copiedId === script.id.toString() ? (
+                        <Check className="size-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="size-3.5" />
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDeleteScript(script.id)}
+                      aria-label="Excluir script"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
         </div>
       )}
 
